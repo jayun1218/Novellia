@@ -1,55 +1,60 @@
 # Novellia (노벨리아) 🎭
 
-**Novellia**는 인공지능과 사용자가 함께 만들어가는 인터랙티브 스토리텔링 및 AI 캐릭터 대화 플랫폼입니다. '제타(Zeta)'의 한계를 뛰어넘어, 더 깊은 기억력과 일관성 있는 성격을 가진 AI 파트너와 잊지 못할 이야기를 써 내려가세요.
+**Novellia**는 인공지능과 사용자가 함께 만들어가는 차세대 인터랙티브 스토리텔링 및 AI 캐릭터 대화 플랫폼입니다. 단순한 챗봇을 넘어, 당신이 부여한 영혼(페르소나)과 비주얼을 기반으로 살아 움직이는 캐릭터들과 깊은 서사를 만들어 가세요.
 
 ---
 
-## ✨ 주요 기능
+## ✨ 핵심 기능
 
-- **장기 메모리 시스템 (Long-term Memory)**: 대화가 길어져도 앞선 약속이나 중요한 설정을 잊지 않는 독자적인 3계층 메모리 구조를 탑재했습니다.
-- **캐릭터 일관성 엔진**: 대화 도중 캐릭터의 성격이 붕괴되는 현상을 방지하여, 몰입감 넘치는 역할극 경험을 제공합니다.
-- **지시문 액션 시스템**: `*행동*` 입력을 통해 소설과 같은 장면 묘사와 대화를 넘나드는 풍부한 상호작용이 가능합니다.
-- **반응형 멀티 디바이스 지원**: 웹(데스크톱)과 모바일 앱 환경 각각에 최적화된 세련된 다크 모드 UI를 제공합니다.
+- **실시간 AI 이미지 생성 (DALL-E 3)**: 캐릭터의 외모를 텍스트로 묘사하면, 즉석에서 고퀄리티 한국 웹소설풍 아바타를 생성하고 시안을 선택할 수 있습니다.
+- **페르소나 기반 GPT-4o 채팅**: 캐릭터별 고유한 가치관, 말투, 숨겨진 배경 서사를 완벽히 반영한 몰입감 넘치는 대화 경험을 제공합니다.
+- **커스텀 캐릭터 소환**: 이름부터 첫 대사, 상세 페르소나, 로어북까지 직접 설정하여 나만의 캐릭터를 창조하고 메인 피드에 공개할 수 있습니다.
+- **장면 묘사 및 액션 가이드**: `*지시문*` 시스템을 활용해 대화와 장면 묘사를 자유롭게 넘나들며 한 편의 소설과 같은 이야기를 제작할 수 있습니다.
 
 ## 🛠 기술 스택
 
 ### Frontend
 - **Framework**: Next.js 16 (App Router)
-- **Styling**: Tailwind CSS v4 (Glassmorphism UI)
+- **Styling**: Tailwind CSS v4 (Glassmorphism & Dark Mode)
 - **Icons**: Lucide React
 
 ### Backend
 - **Framework**: FastAPI (Python)
-- **AI Engine**: OpenAI GPT-4o
-- **Vector DB**: ChromaDB (장기 메모리 관리)
-- **Auth**: Supabase Auth
+- **AI Engine**: OpenAI GPT-4o (Chat), DALL-E 3 (Image)
+- **Environment**: Python Dotenv (.env 관리)
 
 ---
 
 ## 🚀 시작하기
 
-### 프론트엔드 (Frontend)
+### 1. API 키 설정 (백엔드)
+`backend/.env` 파일을 생성하거나 수정하여 OpenAI API 키를 입력합니다.
+```env
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+### 2. 프론트엔드 (Frontend) 실행
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-### 백엔드 (Backend)
+### 3. 백엔드 (Backend) 실행
 ```bash
 cd backend
 pip install -r requirements.txt
-uvicorn main:app --reload
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ---
 
 ## 📅 프로젝트 로드맵
 
-1. **Phase 1: UI/UX 기초 구축** - 브랜드 리네이밍 및 반응형 UI 레이아웃 완성 (진행 중)
-2. **Phase 2: AI 엔진 및 스트리밍 연동** - GPT-4o 핵심 대화 로직 구현
-3. **Phase 3: 장기 메모리 및 벡터 DB 통합** - 에피소드 요약 및 회상 기능 추가
-4. **Phase 4: 커뮤니티 및 수익화 모델** - 캐릭터 피드 공유 및 크레딧 시스템 도입
+1. **Phase 1: UI/UX 기초 구축** - 브랜드 리네이밍 및 반응형 UI 레이아웃 완성 (✅ 완료)
+2. **Phase 2: AI 엔진 실시간 연동** - GPT-4o 대화 및 DALL-E 3 이미지 생성 통합 (✅ 완료)
+3. **Phase 3: 장기 메모리 시스템** - 에피소드 요약 및 회상 기능 (예정)
+4. **Phase 4: 커뮤니티 고도화** - 캐릭터 피드 공유 및 인터랙티브 스토리텔링 툴킷 (예정)
 
 ---
 **Novellia** - *당신의 상상이 현실이 되는 첫 번째 페이지.*

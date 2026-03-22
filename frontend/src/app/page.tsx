@@ -1,43 +1,54 @@
-import React from 'react';
-import CharacterCard from '@/components/Main/CharacterCard';
-import { Sparkles } from 'lucide-react';
+'use client'
 
-const characters = [
+import React, { useEffect, useState } from 'react';
+import CharacterCard from '@/components/Main/CharacterCard';
+import { Sparkles, UserCheck } from 'lucide-react';
+
+const popularCharacters = [
   {
     id: "sn1",
     name: "서연호",
-    description: "내 모든 것이 당신을 향해 집착하고 있어요. 도망칠 수 있을 거라 생각했나요?",
-    tags: ["집착공", "얀데레", "미인공", "안경"],
-    chatCount: "15.4k",
+    description: "도전장을 내민 당신을 흥미롭게 지켜보는 위험한 선배",
+    tags: ["#집착", "#연상", "#능글"],
+    chatCount: "8.6만",
     avatarUrl: "/seoyeonho.png"
   },
   {
     id: "bk2",
     name: "강백현",
-    description: "어이, 너. 나랑 재미 좀 볼래? 인생 짧잖아, 안 그래? 고민하지 말고 따라와.",
-    tags: ["반항아", "플레이보이", "능글남", "타투/피어싱"],
-    chatCount: "12.8k",
+    description: "반항적인 눈빛 속에 숨겨진 서투른 진심",
+    tags: ["#반항아", "#츤데레", "#일진"],
+    chatCount: "12.3만",
     avatarUrl: "/baekhyun.png"
   },
   {
     id: "yj3",
     name: "윤제이",
-    description: "...용건 형식이 없군요. 용건만 말하고 나가주세요. 제 시간은 당신 생각보다 비싸거든요.",
-    tags: ["냉혈남", "엘리트", "오만", "비즈니스"],
-    chatCount: "9.2k",
+    description: "완벽한 이목구비 뒤에 감춰진 시린 얼음 왕자",
+    tags: ["#냉혈남", "#재벌3세", "#엘리트"],
+    chatCount: "5.4만",
     avatarUrl: "/yunjay.png"
-  },
-  {
-    id: "1",
-    name: "엘리나",
-    description: "창가 자리에 앉아 당신을 기다리는 신비로운 소녀. 오늘은 어떤 이야기가 우리를 기다릴까요?",
-    tags: ["청순", "신비로움", "카페", "로맨틱"],
-    chatCount: "8.5k",
-    avatarUrl: "/avatar.png"
   }
 ];
 
 export default function Home() {
+  const [myCharacters, setMyCharacters] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchMyCharacters = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/characters');
+        if (response.ok) {
+          const data = await response.json();
+          setMyCharacters(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch characters:', error);
+      }
+    };
+    fetchMyCharacters();
+  }, []);
+
   return (
     <main className="min-h-screen bg-background pb-32">
       {/* Hero Section */}
@@ -54,8 +65,8 @@ export default function Home() {
         </p>
       </section>
 
-      {/* Character Grid */}
-      <section className="px-6 md:px-12 max-w-6xl">
+      {/* Popular Character Grid */}
+      <section className="px-6 md:px-12 max-w-6xl mb-16">
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xl md:text-2xl font-black flex items-center gap-2">
             Trending 캐릭터 <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
@@ -64,11 +75,37 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-          {characters.map((char) => (
+          {popularCharacters.map((char) => (
             <CharacterCard key={char.id} {...char} />
           ))}
         </div>
       </section>
+
+      {/* My Created Characters Section */}
+      {myCharacters.length > 0 && (
+        <section className="px-6 md:px-12 max-w-6xl mb-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="flex items-center gap-2 mb-8">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <UserCheck className="w-5 h-5 text-primary" />
+            </div>
+            <h2 className="text-xl md:text-2xl font-black text-white">내가 만든 캐릭터</h2>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+            {myCharacters.map((char, index) => (
+              <CharacterCard 
+                key={index} 
+                id={`my-${index}`}
+                name={char.name}
+                description={char.description}
+                tags={char.tags}
+                chatCount="0"
+                avatarUrl={char.avatar_url || '/avatar.png'}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Story Genres */}
       <section className="mt-12 px-6 md:px-12 max-w-6xl pb-10">

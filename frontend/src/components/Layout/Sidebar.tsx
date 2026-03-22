@@ -5,12 +5,12 @@ import { Home, PlusCircle, Compass, User, Sparkles } from 'lucide-react';
 const Sidebar = () => {
   return (
     <aside className="hidden md:flex flex-col w-64 h-screen glass fixed left-0 top-0 z-50 p-6 border-r border-white/5">
-      <div className="flex items-center gap-2 mb-10 px-2">
+      <Link href="/" className="flex items-center gap-2 mb-10 px-2 hover:opacity-80 transition-opacity cursor-pointer">
         <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
           <Sparkles className="w-5 h-5 text-white" />
         </div>
         <h1 className="text-xl font-black tracking-tighter text-white">Novellia</h1>
-      </div>
+      </Link>
 
       <nav className="flex flex-col gap-2 flex-1">
         <Link href="/" className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/10 text-primary font-medium transition-all">
