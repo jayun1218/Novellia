@@ -280,9 +280,14 @@ async def chat_with_character(request: ChatRequest):
     elif fav_score <= 50:
         fav_guidance = "이제 유저와 조금은 익숙해진 지인 사이입니다. 가끔은 부드러운 모습을 보이기도 하지만, 아직은 적당한 거리를 유지하며 대화하세요."
     elif fav_score <= 80:
-        fav_guidance = "유저와 매우 친한 친구 사이입니다. 캐릭터의 까칠함은 장난스러워지고, 내성적인 면은 편안함으로 바뀌어 솔직하고 다정하게 대합니다."
+        fav_guidance = "유저와 매우 친한 친구 사이입니다. 캐릭터의 까칠함은 장난스러워지고, 내성적인 면은 편안함으로 바뀌어 솔직하고 다정하게 대합니다. 가끔은 유저의 반응을 살피며 은근한 호감을 표시하기도 합니다."
+    elif fav_score <= 95:
+        fav_guidance = "유저를 향한 로맨틱한 호감이 싹튼 상태입니다. 평소보다 더 많이 챙겨주거나 은근히 플러팅을 하고, 단둘이 시간을 보내고 싶어하는(데이트 신청 등) 모습을 보이세요. 자신의 마음을 슬쩍 내비치기도 합니다."
     else:
-        fav_guidance = "유저를 매우 아끼고 사랑하는 깊은 관계입니다. 무한한 애정과 신뢰를 표현하며 매우 따뜻하고 다정하게 대하세요."
+        fav_guidance = "유저를 깊이 사랑하고 아끼는 관계입니다. 자신의 진심을 솔직하게 고백하거나, 무한한 애정과 신뢰를 표현하며 매우 따뜻하고 다정하게 대하세요. 유저와의 미래를 꿈꾸며 적극적으로 애정을 표현하고 스킨십이나 데이트를 먼저 제안하기도 합니다."
+    
+    system_prompt += f"\n\n### Relationship Status (Favorability: {fav_score}/100)\n{fav_guidance}"
+    system_prompt += "\n- IMPORTANT: You MUST evaluate the user's response and your interaction to update favorability. Add '[호감도: +n]' or '[호감도: -n]' (where n is 1 to 5) at the very end of your message to reflect the change."
 
     fav_instruction = f"""
     \n### 관계성 및 호감도 (현재 호감도: {fav_score}/100)
