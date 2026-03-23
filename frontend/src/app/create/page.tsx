@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Save, Sparkles, Image as ImageIcon, BookOpen, MessageSquare, Plus, RefreshCw, X, Settings, Zap, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, Sparkles, Image as ImageIcon, BookOpen, MessageSquare, Plus, RefreshCw, X, Settings, Zap, ChevronDown, ChevronUp, Upload } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const CreateCharacterPage = () => {
@@ -64,7 +64,11 @@ const CreateCharacterPage = () => {
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [selectedImgIndex, setSelectedImgIndex] = useState<number | null>(null);
   const [visualPrompt, setVisualPrompt] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false); // For image generation
+
+  // New states for Namuwiki auto-fill
+  const [namuUrl, setNamuUrl] = useState('');
+  const [isScraping, setIsScraping] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -166,6 +170,32 @@ const CreateCharacterPage = () => {
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const uploadFormData = new FormData();
+    uploadFormData.append('file', file);
+
+    setIsGenerating(true);
+    try {
+      const response = await fetch('http://localhost:8000/upload-image', {
+        method: 'POST',
+        body: uploadFormData,
+      });
+      const data = await response.json();
+      if (data.url) {
+        setFormData(prev => ({ ...prev, avatar_url: data.url }));
+        setSelectedImgIndex(-1); // Special index for custom upload
+      }
+    } catch (error) {
+      console.error(error);
+      alert('업로드 중 오류가 발생했습니다.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const selectImage = (index: number, url: string) => {
     setSelectedImgIndex(index);
     setFormData(prev => ({ ...prev, avatar_url: url }));
@@ -188,6 +218,42 @@ const CreateCharacterPage = () => {
 위의 설정들을 바탕으로 사용자와의 대화에서 일관성 있는 태도를 유지합니다.`;
 
     setFormData(prev => ({ ...prev, persona: generated }));
+  };
+
+  const handleNamuAutoFill = async () => {
+    if (!namuUrl) {
+      alert('나무위키 URL을 입력해주세요!');
+      return;
+    }
+    setIsScraping(true);
+    try {
+      const response = await fetch('http://localhost:8000/scrape-namuwiki', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: namuUrl }),
+      });
+      const data = await response.json();
+      if (response.ok && data) {
+        setFormData(prev => ({
+          ...prev,
+          name: data.name || prev.name,
+          description: data.description || prev.description,
+          persona: data.persona || prev.persona,
+          greeting: data.greeting || prev.greeting,
+          speech_style: data.speech_style || prev.speech_style,
+          tags: data.tags ? [...new Set([...prev.tags, ...data.tags.map((t: string) => t.replace('#', ''))])] : prev.tags,
+          lorebook: data.lorebook || prev.lorebook,
+        }));
+        alert('나무위키 정보로 캐릭터가 마법처럼 채워졌습니다! ✨');
+      } else {
+        alert(data.error || '나무위키 정보를 가져오는 데 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('나무위키 스크래핑 오류:', error);
+      alert('나무위키 정보를 가져오는 중 오류가 발생했습니다.');
+    } finally {
+      setIsScraping(false);
+    }
   };
 
   return (
@@ -230,6 +296,30 @@ const CreateCharacterPage = () => {
       {/* Basic Tab */}
       {activeTab === 'basic' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {/* Namuwiki Auto-fill */}
+          <div className="p-6 bg-gradient-to-r from-primary/10 to-transparent border border-primary/20 rounded-3xl space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <h4 className="text-sm font-bold text-white">나무위키 링크로 자동 완성</h4>
+            </div>
+            <div className="flex gap-2">
+              <input 
+                type="text" 
+                value={namuUrl}
+                onChange={(e) => setNamuUrl(e.target.value)}
+                placeholder="https://namu.wiki/w/캐릭터이름" 
+                className="flex-1 bg-surface border border-white/5 rounded-2xl p-4 text-white focus:outline-none focus:border-primary/50 transition-all text-sm" 
+              />
+              <button 
+                onClick={handleNamuAutoFill}
+                disabled={isScraping}
+                className="px-6 bg-primary hover:bg-primary-hover text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
+              >
+                {isScraping ? <RefreshCw className="w-4 h-4 animate-spin" /> : '마법봉 클릭'}
+              </button>
+            </div>
+          </div>
+
           <div className="grid gap-6">
             <div className="space-y-2">
               <label className="text-sm font-bold text-gray-400 ml-1">이름</label>
@@ -505,55 +595,106 @@ const CreateCharacterPage = () => {
       {/* Visual Tab */}
       {activeTab === 'visual' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="flex flex-col items-center justify-center p-8 bg-surface border border-dashed border-white/10 rounded-3xl group transition-all">
-            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-              <ImageIcon className="w-6 h-6 text-primary" />
-            </div>
-            <h4 className="font-bold text-white mb-2">프롬프트로 아바타 생성</h4>
-            <p className="text-gray-400 text-sm text-center mb-6 max-w-xs">원하는 외모를 묘사하면 Novellia AI가 5가지 시안을 그려드립니다.</p>
-            <div className="flex w-full gap-2">
-              <input 
-                type="text" 
-                value={visualPrompt}
-                onChange={(e) => setVisualPrompt(e.target.value)}
-                placeholder="예: 검은 머리에 안경을 쓴 차가운 미청년..." 
-                className="flex-1 bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-primary" 
-              />
-              <button 
-                onClick={handleGenerateImages}
-                disabled={isGenerating}
-                className="px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold flex items-center gap-2 disabled:opacity-50"
-              >
-                {isGenerating ? <RefreshCw className="w-4 h-4 animate-spin" /> : '생성'}
-              </button>
-            </div>
-          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <label className="text-sm font-bold text-gray-400 ml-1">AI로 모습 소환하기</label>
+                <textarea 
+                  value={visualPrompt} 
+                  onChange={(e) => setVisualPrompt(e.target.value)} 
+                  rows={4} 
+                  placeholder="예: 은발에 푸른 눈을 가진, 차가운 분위기의 10대 후반 소년. 검은색 코트를 입고 있다." 
+                  className="w-full bg-surface border border-white/5 rounded-2xl p-4 text-white focus:outline-none focus:border-primary/50 transition-all resize-none text-sm" 
+                />
+                <button 
+                  onClick={handleGenerateImages} 
+                  disabled={isGenerating}
+                  className="w-full bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 py-3 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                >
+                  {isGenerating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  시안 생성 시작 (DALL-E 3)
+                </button>
+              </div>
 
-          {generatedImages.length > 0 && !isGenerating && (
-            <div className="space-y-4 animate-in fade-in zoom-in-95 duration-500">
-              <h4 className="text-sm font-bold text-gray-400 ml-1">생성된 시안 중 하나를 선택하세요</h4>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                {generatedImages.map((img, index) => (
-                  <div 
-                    key={index}
-                    onClick={() => selectImage(index, img)}
-                    className={`relative aspect-square rounded-2xl overflow-hidden cursor-pointer border-2 transition-all ${
-                      selectedImgIndex === index ? 'border-primary scale-105 shadow-xl shadow-primary/20' : 'border-transparent opacity-60 hover:opacity-100'
-                    }`}
+              <div className="space-y-4 pt-4 border-t border-white/5">
+                <label className="text-sm font-bold text-gray-400 ml-1">직접 사진 업로드</label>
+                <div className="relative">
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={handleImageUpload} 
+                    className="hidden" 
+                    id="image-upload" 
+                  />
+                  <label 
+                    htmlFor="image-upload" 
+                    className="w-full bg-surface border border-dashed border-white/10 hover:border-primary/50 rounded-2xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all group"
                   >
-                    <img src={img} alt={`Candidate ${index + 1}`} className="w-full h-full object-cover" />
-                    {selectedImgIndex === index && (
-                      <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                        <div className="bg-primary text-white p-1 rounded-full"><Plus className="w-4 h-4 rotate-45" /></div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                    <div className="p-3 rounded-2xl bg-white/5 group-hover:bg-primary/10 group-hover:text-primary transition-all">
+                      <Upload className="w-6 h-6 text-gray-400 group-hover:text-primary" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-bold text-gray-300">이미지 파일 선택</p>
+                      <p className="text-[10px] text-gray-500 mt-1">또는 파일을 여기로 드래그하세요</p>
+                    </div>
+                  </label>
+                </div>
               </div>
             </div>
-          )}
+
+            <div className="space-y-4">
+              <label className="text-sm font-bold text-gray-400 ml-1">미리보기 및 선택</label>
+              <div className="bg-surface border border-white/5 rounded-3xl p-6 min-h-[300px] flex flex-col items-center justify-center">
+                {formData.avatar_url ? (
+                  <div className="relative group">
+                    <img 
+                      src={formData.avatar_url} 
+                      alt="Avatar Preview" 
+                      className="w-48 h-48 rounded-full object-cover border-4 border-primary shadow-2xl shadow-primary/20" 
+                    />
+                    <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
+                      <p className="text-xs font-bold text-white">현재 선택됨</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center space-y-3">
+                    <div className="w-24 h-24 rounded-full bg-white/5 mx-auto flex items-center justify-center">
+                      <ImageIcon className="w-8 h-8 text-gray-600" />
+                    </div>
+                    <p className="text-xs text-gray-500">이미지를 생성하거나 업로드하면<br/>여기에 표시됩니다.</p>
+                  </div>
+                )}
+
+                {generatedImages.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mt-8 w-full overflow-y-auto max-h-40 p-1">
+                    {generatedImages.map((url, idx) => (
+                      <button 
+                        key={idx} 
+                        onClick={() => selectImage(idx, url)}
+                        className={`relative rounded-xl overflow-hidden aspect-square border-2 transition-all ${selectedImgIndex === idx ? 'border-primary' : 'border-transparent hover:border-white/20'}`}
+                      >
+                        <img src={url} alt={`Option ${idx}`} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
+
+      {/* Save Button */}
+      <div className="mt-12 flex justify-center">
+        <button 
+          onClick={handleSave}
+          disabled={isLoading}
+          className="bg-primary hover:bg-primary-hover text-white px-12 py-4 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-primary/20 transition-all disabled:opacity-50"
+        >
+          {isLoading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+          캐릭터 소환하기
+        </button>
+      </div>
     </div>
   );
 };

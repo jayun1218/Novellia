@@ -9,6 +9,7 @@ const popularCharacters: Record<string, any> = {
   'sn1': { name: '서연호', avatarUrl: '/seoyeonho.png', greeting: '도전장을 내밀다니, 제법이네? 내 관심을 끈 대가는 꽤 비쌀 텐데.' },
   'bk2': { name: '강백현', avatarUrl: '/baekhyun.png', greeting: '어이, 거기. 나랑 눈 마주쳤으면 그냥은 못 가지. 한판 붙을래, 아니면 나랑 놀래?' },
   'yj3': { name: '윤제이', avatarUrl: '/yunjay.png', greeting: '회의 중에 실례군요. 용건이 30초 내로 설명 가능한 수준이길 바랍니다.' },
+  'ma4': { name: '미야 아츠무', avatarUrl: 'http://localhost:8000/uploads/atsumu.png', greeting: '(코트 위에 서서 배구공을 굴리며 당신을 빤히 바라본다) "어이, 니. 내 토스 함 쳐볼래? 아무한테나 주는 거 아인디."' },
 };
 
 export default function ChatPage({ params }: { params: Promise<{ id: string }> }) {

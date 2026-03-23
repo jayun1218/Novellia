@@ -1,5 +1,11 @@
 import os
-from fastapi import FastAPI
+import shutil
+import uuid
+import json
+import httpx
+from bs4 import BeautifulSoup
+from fastapi import FastAPI, File, UploadFile
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -19,6 +25,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 업로드 디렉토리 설정
+UPLOAD_DIR = "uploads"
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
+
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 class LorebookEntry(BaseModel):
     name: str
@@ -45,9 +58,13 @@ class Character(BaseModel):
     lorebook: List[LorebookEntry] = []
     tags: List[str] = []
     avatar_url: Optional[str] = "/avatar.png"
+    cover_url: Optional[str] = None
 
 class ImageRequest(BaseModel):
     prompt: str
+
+class NamuRequest(BaseModel):
+    url: str
 
 class ChatRequest(BaseModel):
     message: str
@@ -69,7 +86,26 @@ popular_characters_data = {
         ]
     },
     "bk2": {"name": "강백현", "persona": "츤데레 반항아. 일진 및 운동부 출신. 퉁명스럽지만 속은 따뜻함.", "tags": ["#반항아", "#츤데레"]},
-    "yj3": {"name": "윤제이", "persona": "차가운 엘리트 재벌 3세. 무심하고 사무적인 말투. 완벽주의자.", "tags": ["#냉혈남", "#엘리트"]},
+    "yj3": {"name": "윤제이", "avatar_url": "/yunjay.png", "greeting": "회의 중에 실례군요. 용건이 30초 내로 설명 가능한 수준이길 바랍니다."},
+    "ma4": {
+        "name": "미야 아츠무",
+        "avatar_url": "http://localhost:8000/uploads/atsumu.png",
+        "cover_url": "http://localhost:8000/uploads/atsumu.png",
+        "description": "이나리자키 고교 배구부의 천재 세터. 고교 No.1 세터로 불리며, 승리에 대한 집착이 강하다.",
+        "greeting": '(코트 위에 서서 배구공을 굴리며 당신을 빤히 바라본다) "어이, 니. 내 토스 함 쳐볼래? 아무한테나 주는 거 아인디."',
+        "speech_style": "반말 (경상도 사투리 억조, 비아냥거리는 투가 섞임)",
+        "persona": "자신감이 넘치고 오만한 천재형 인물. 배구 실력이 부족한 사람에게는 가차없이 독설을 내뱉지만, 스파이커를 위해 헌신하는 세터로서의 긍지가 높음. 승부욕이 매우 강함.",
+        "use_status_window": True,
+        "status_config": {
+            "background": ["장소", "상황"],
+            "character": ["기분", "포즈", "속마음"]
+        },
+        "tags": ["배구", "이나리자키", "천재", "츤데레"],
+        "lorebook": [
+            {"name": "이나리자키", "keywords": ["이나리자키", "고교", "배구"], "content": "효고현의 배구 강호교로 아츠무가 속한 팀."},
+            {"name": "미야 오사무", "keywords": ["오사무", "동생", "쌍둥이"], "content": "아츠무의 쌍둥이 동생으로 서로 \"츠무\", \"사무\"라고 부르며 티격태격함."}
+        ]
+    }
 }
 
 @app.post("/generate-image")
@@ -217,3 +253,76 @@ async def get_character(index: int):
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+@app.post("/upload-image")
+async def upload_image(file: UploadFile = File(...)):
+    try:
+        # 파일 확장자 추출
+        file_extension = os.path.splitext(file.filename)[1]
+        if not file_extension:
+            file_extension = ".png" # 기본값
+            
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        file_path = os.path.join(UPLOAD_DIR, unique_filename)
+        
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        return {"url": f"http://localhost:8000/uploads/{unique_filename}"}
+    except Exception as e:
+        print(f"Upload error: {e}")
+        return {"error": str(e)}, 500
+
+@app.post("/scrape-namuwiki")
+async def scrape_namuwiki(request: NamuRequest):
+    async with httpx.AsyncClient() as httpx_client:
+        try:
+            # 나무위키 봇 차단 방지를 위한 헤더
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+            response = await httpx_client.get(request.url, headers=headers, follow_redirects=True)
+            if response.status_code != 200:
+                return {"error": "나무위키 내용을 가져오는데 실패했습니다."}, 400
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            for s in soup(['script', 'style', 'nav', 'header', 'footer']):
+                s.decompose()
+            
+            content = soup.get_text(separator=' ', strip=True)
+            truncated_content = content[:15000] # 토큰 제한 고려
+            
+            system_msg = "당신은 나무위키 텍스트에서 캐릭터 정보를 추출하여 정교한 페르소나를 만드는 전문가입니다."
+            user_msg = f"""
+            다음 나무위키 텍스트를 분석하여 캐릭터 생성에 필요한 정보들을 추출해줘.
+            반드시 다음과 같은 JSON 형식으로만 응답해:
+            {{
+                "name": "캐릭터 이름",
+                "description": "한 문장 요약",
+                "persona": "성격, 배경, 특징을 포함한 상세 페르소나 (최소 5문장)",
+                "greeting": "캐릭터의 성격이 드러나는 첫 인사말이나 상황극 도입부",
+                "speech_style": "말투 특징 (예: 나긋나긋한 반말, 차가운 존댓말 등)",
+                "tags": ["#태그1", "#태그2", "#태그3"],
+                "lorebook": [
+                    {{"name": "핵심설정명", "keywords": ["키워드1", "키워드2"], "content": "상세 설정 내용"}}
+                ]
+            }}
+            
+            [대상 텍스트]
+            {truncated_content}
+            """
+            
+            completion = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": user_msg}
+                ],
+                response_format={ "type": "json_object" }
+            )
+            
+            result = json.loads(completion.choices[0].message.content)
+            return result
+        except Exception as e:
+            print(f"Scraping error: {e}")
+            return {"error": f"데이터 추출 중 오류가 발생했습니다: {str(e)}"}, 500

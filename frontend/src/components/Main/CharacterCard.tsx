@@ -9,15 +9,16 @@ interface CharacterCardProps {
   tags: string[];
   chatCount: string;
   avatarUrl: string;
+  coverUrl?: string;
 }
 
-const CharacterCard: React.FC<CharacterCardProps> = ({ id, name, description, tags, chatCount, avatarUrl }) => {
+const CharacterCard: React.FC<CharacterCardProps> = ({ id, name, description, tags, chatCount, avatarUrl, coverUrl }) => {
   return (
     <Link href={`/chat/${id}`} className="block group">
       <div className="glass-card overflow-hidden hover:border-primary/50 transition-all hover:scale-[1.02] active:scale-[0.98]">
         <div className="relative aspect-[4/5] overflow-hidden">
           <img 
-            src={avatarUrl} 
+            src={coverUrl || avatarUrl} 
             alt={name} 
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           />
