@@ -14,9 +14,11 @@ interface MessageProps {
     avatar_url: string;
   };
   aiAvatarUrl?: string;
+  aiName?: string;
+  favorability?: number;
 }
 
-const Message: React.FC<MessageProps> = ({ content, isAi, timestamp, settings, userProfile, aiAvatarUrl }) => {
+const Message: React.FC<MessageProps> = ({ content, isAi, timestamp, settings, userProfile, aiAvatarUrl, aiName, favorability }) => {
   const [isStatusOpen, setIsStatusOpen] = useState(false);
   const theme = settings?.theme || 'basic';
   const showProfile = settings?.showProfile ?? true;
@@ -39,7 +41,9 @@ const Message: React.FC<MessageProps> = ({ content, isAi, timestamp, settings, u
   const { dialogue, statusBlocks } = parseContent(content);
 
   const formatDialogue = (text: string) => {
-    const parts = text.split(/(\*.*?\*|\(.*?\))/g);
+    // Filter out favorability tags
+    const cleanText = text.replace(/\[호감도:\s*[+-]?\d+\]/g, '').trim();
+    const parts = cleanText.split(/(\*.*?\*|\(.*?\))/g);
     return parts.map((part, i) => {
       if ((part.startsWith('*') && part.endsWith('*')) || (part.startsWith('(') && part.endsWith(')'))) {
         let actionColor = isAi ? 'text-primary' : 'text-white/60';
@@ -87,7 +91,7 @@ const Message: React.FC<MessageProps> = ({ content, isAi, timestamp, settings, u
       <div className={`flex flex-col max-w-[80%] ${isAi ? 'items-start' : 'items-end'}`}>
         {(isAi || showProfile) && (
           <span className="text-[11px] font-bold text-gray-500 mb-1 px-1">
-            {isAi ? 'AI' : (userProfile?.name || '나')}
+            {isAi ? (aiName || 'AI') : (userProfile?.name || '나')}
           </span>
         )}
         
@@ -99,22 +103,52 @@ const Message: React.FC<MessageProps> = ({ content, isAi, timestamp, settings, u
           </p>
 
           {isAi && statusBlocks.length > 0 && (
-            <div className="mt-4 pt-3 border-t border-black/5">
+            <div className={`mt-4 pt-3 border-t ${theme === 'basic' ? 'border-white/5' : 'border-black/5'}`}>
               <button 
                 onClick={() => setIsStatusOpen(!isStatusOpen)}
-                className="flex items-center gap-1.5 text-[11px] font-bold text-gray-500 hover:text-primary transition-colors"
+                className={`flex items-center gap-1.5 text-[11px] font-bold transition-colors ${
+                  theme === 'basic' ? 'text-gray-400 hover:text-primary' : 'text-gray-500 hover:text-primary'
+                }`}
               >
                 상태창 {isStatusOpen ? '접기' : '열기'}
+                {isStatusOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
               </button>
               
               {isStatusOpen && (
-                <div className="mt-3 space-y-4 animate-in fade-in slide-in-from-top-1 duration-300">
+                <div className="mt-4 space-y-5 animate-in fade-in slide-in-from-top-1 duration-300">
+                  {/* Favorability Bar */}
+                  {favorability !== undefined && (
+                    <div className={`pb-4 border-b ${theme === 'basic' ? 'border-white/5' : 'border-black/5'}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${
+                          theme === 'basic' ? 'text-rose-400' : 'text-rose-500/70'
+                        }`}>Relationship</span>
+                        <span className={`text-[10px] font-bold ${
+                          theme === 'basic' ? 'text-rose-400' : 'text-rose-500/70'
+                        }`}>{favorability}%</span>
+                      </div>
+                      <div className={`w-full h-1.5 rounded-full overflow-hidden ${
+                        theme === 'basic' ? 'bg-white/10' : 'bg-black/5'
+                      }`}>
+                        <div 
+                          className="h-full bg-gradient-to-r from-rose-400 to-rose-300 transition-all duration-1000"
+                          style={{ width: `${favorability}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {statusBlocks.map((block, idx) => (
-                    <div key={idx} className="space-y-2">
-                      <h5 className="text-[11px] font-black text-black/40 uppercase tracking-tighter">{block.title}</h5>
-                      <div className="space-y-1.5 pl-1">
+                    <div key={idx} className="space-y-2.5">
+                      <h5 className={`text-[11px] font-black uppercase tracking-tighter ${
+                        theme === 'basic' ? 'text-white/40' : 'text-black/40'
+                      }`}>{block.title}</h5>
+                      <div className="space-y-2 pl-1">
                         {block.content.split('\n').filter(line => line.trim()).map((line, lidx) => (
-                          <div key={lidx} className="text-[13px] text-black/70 flex items-start gap-2">
+                          <div key={lidx} className={`text-[13px] flex items-start gap-2 leading-snug ${
+                            theme === 'basic' ? 'text-white/70' : 'text-black/70'
+                          }`}>
+                            <span className="mt-1.5 w-1 h-1 rounded-full bg-current opacity-30 flex-shrink-0" />
                             <span>{line.replace(/^- /, '')}</span>
                           </div>
                         ))}

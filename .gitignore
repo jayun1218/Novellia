@@ -54,3 +54,5 @@ CharaChat_프로젝트계획서.docx
 
 # Databases
 backend/*.json
+backend/backend_debug.log
+backend/backend.log

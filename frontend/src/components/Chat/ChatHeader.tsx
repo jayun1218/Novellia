@@ -18,6 +18,7 @@ interface ChatHeaderProps {
   onProfileSelect: (index: number) => void;
   settings: ChatSettings;
   onSettingsChange: (settings: ChatSettings) => void;
+  onResetChat: () => void;
 }
 
 const ChatHeader: React.FC<ChatHeaderProps> = ({ 
@@ -28,7 +29,8 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
   selectedProfileIndex, 
   onProfileSelect,
   settings,
-  onSettingsChange
+  onSettingsChange,
+  onResetChat
 }) => {
   const [showProfiles, setShowProfiles] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -176,9 +178,20 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
                     </div>
                   </div>
 
-                  <div className="border-t border-white/5 pt-1.5">
+                  <div className="border-t border-white/5 pt-1.5 space-y-1">
                     <button className="w-full text-left p-2.5 rounded-xl hover:bg-white/5 text-[13px] font-medium text-gray-400 transition-colors">
                       대화방 편집
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (confirm('정말로 대화를 초기화하시겠습니까? 모든 대화 내용과 호감도가 사라집니다.')) {
+                          onResetChat();
+                          setShowSettings(false);
+                        }
+                      }}
+                      className="w-full text-left p-2.5 rounded-xl hover:bg-rose-500/10 text-[13px] font-bold text-rose-400 transition-colors"
+                    >
+                      대화 초기화하기
                     </button>
                   </div>
                 </div>

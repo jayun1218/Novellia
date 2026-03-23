@@ -29,7 +29,7 @@ export default function ProfilesPage() {
 
   const fetchProfiles = async () => {
     try {
-      const response = await fetch('http://localhost:8000/user-profiles');
+      const response = await fetch('http://127.0.0.1:8000/user-profiles');
       const data = await response.json();
       setProfiles(data);
     } catch (error) {
@@ -59,7 +59,7 @@ export default function ProfilesPage() {
     try {
       // For simplicity, we just push to the end or replace. 
       // Backend actually marks them by index in this simple implementation.
-      const response = await fetch('http://localhost:8000/user-profiles', {
+      const response = await fetch('http://127.0.0.1:8000/user-profiles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -82,7 +82,7 @@ export default function ProfilesPage() {
     e.stopPropagation();
     if (!confirm('프로필을 삭제하시겠습니까?')) return;
     try {
-      await fetch(`http://localhost:8000/user-profiles/${index}`, { method: 'DELETE' });
+      await fetch(`http://127.0.0.1:8000/user-profiles/${index}`, { method: 'DELETE' });
       await fetchProfiles();
     } catch (error) {
       console.error('Failed to delete profile:', error);

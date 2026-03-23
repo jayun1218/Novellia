@@ -253,18 +253,52 @@ async def chat_with_character(request: ChatRequest):
         u_profile = user_profiles_db[request.user_profile_index]
         user_info_block = f"""
         ### Information of User (You are talking to this person)
-        - Name: {u_profile.name}
-        - Bio: {u_profile.short_bio}
-        - Description: {u_profile.description}
+        - Name: {u_profile.get('name', 'User')}
+        - Bio: {u_profile.get('short_bio', '')}
+        - Description: {u_profile.get('description', '')}
         """
         system_prompt += user_info_block
     
+    # Favorability Logic
+    char_key = request.char_id or f"index_{request.index}"
+    
+    # Ensure it's in the DB and avoid KeyError
+    if char_key not in chats_db:
+        chats_db[char_key] = {"messages": [], "favorability": 0}
+    
+    current_chat = chats_db[char_key]
+    
+    # Legacy data handle (if it was a list)
+    if isinstance(current_chat, list):
+        current_chat = {"messages": current_chat, "favorability": 0}
+        chats_db[char_key] = current_chat
+    
+    fav_score = current_chat.get("favorability", 0)
+    fav_guidance = ""
+    if fav_score <= 20:
+        fav_guidance = "현재 당신과 유저는 매우 어색하거나 경계하는 사이입니다. 캐릭터 본연의 까칠하거나 내성적인 성격을 가감 없이 드러내고, 부끄러워하거나 차갑게 대하세요."
+    elif fav_score <= 50:
+        fav_guidance = "이제 유저와 조금은 익숙해진 지인 사이입니다. 가끔은 부드러운 모습을 보이기도 하지만, 아직은 적당한 거리를 유지하며 대화하세요."
+    elif fav_score <= 80:
+        fav_guidance = "유저와 매우 친한 친구 사이입니다. 캐릭터의 까칠함은 장난스러워지고, 내성적인 면은 편안함으로 바뀌어 솔직하고 다정하게 대합니다."
+    else:
+        fav_guidance = "유저를 매우 아끼고 사랑하는 깊은 관계입니다. 무한한 애정과 신뢰를 표현하며 매우 따뜻하고 다정하게 대하세요."
+
+    fav_instruction = f"""
+    \n### 관계성 및 호감도 (현재 호감도: {fav_score}/100)
+    {fav_guidance}
+    
+    IMPORTANT: 당신은 답변의 마지막 줄에 반드시 '[호감도: +n]' 또는 '[호감도: -n]' 형식을 사용하여 이번 대화로 인한 호감도 변화량을 명시해야 합니다 (n은 0~2 사이의 정수). 
+    예: 대화가 즐거웠다면 [호감도: +1], 감동적이었다면 [호감도: +2], 변화가 없다면 [호감도: 0], 무례했다면 [호감도: -1].
+    """
+    
+    system_prompt += fav_instruction
     system_prompt += status_window_instruction
     
     system_prompt += """
     Rules:
     1. Respond in Korean.
-    2. Maintain the character's unique tone and personality.
+    2. Maintain the character's unique tone and personality, adjusted by favorability.
     3. Use a mix of dialogue and descriptive actions.
     4. Keep the response immersive and concise.
     5. No repetitive or generic AI phrases.
@@ -276,15 +310,38 @@ async def chat_with_character(request: ChatRequest):
         messages.append(msg)
     messages.append({"role": "user", "content": request.message})
 
+    print(f"\n[DEBUG] Sending request to OpenAI for char_key: {char_key}")
+    print(f"[DEBUG] User Message: {request.message[:50]}...")
+    
     try:
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=messages,
             max_tokens=600,
+            timeout=30.0 # Timeouts are important
         )
-        return {"reply": response.choices[0].message.content}
+        reply = response.choices[0].message.content
+        print(f"[DEBUG] Received response from OpenAI: {reply[:50]}...")
+        
+        # Parse favorability change
+        import re
+        fav_match = re.search(r'\[호감도:\s*([+-]?\d+)\]', reply)
+        fav_change = 0
+        if fav_match:
+            fav_change = int(fav_match.group(1))
+            print(f"[DEBUG] Parsed favorability change: {fav_change}")
+        
+        # Update favorability in memory
+        new_fav = max(0, min(100, fav_score + fav_change))
+        chats_db[char_key]["favorability"] = new_fav
+        save_db(CHATS_FILE, chats_db)
+        print(f"[DEBUG] Success. New favorability: {new_fav}")
+
+        return {"reply": reply, "favorability": new_fav}
     except Exception as e:
-        print(f"Chat error: {e}")
+        print(f"[ERROR] Chat error: {e}")
+        import traceback
+        traceback.print_exc()
         return {"status": "error", "message": str(e)}
 
 @app.get("/")
@@ -385,6 +442,13 @@ async def scrape_namuwiki(request: NamuRequest):
             print(f"Scraping error: {e}")
             return {"error": f"데이터 추출 중 오류가 발생했습니다: {str(e)}"}, 500
 
+@app.delete("/chats/{char_id}")
+async def clear_chat_history(char_id: str):
+    if char_id in chats_db:
+        chats_db[char_id] = {"messages": [], "favorability": 0}
+        save_db(CHATS_FILE, chats_db)
+    return {"status": "success"}
+
 @app.get("/user-profiles")
 async def get_user_profiles():
     return user_profiles_db
@@ -405,10 +469,18 @@ async def delete_user_profile(index: int):
 
 @app.get("/chats/{char_id}")
 async def get_chat_history(char_id: str):
-    return chats_db.get(char_id, [])
+    data = chats_db.get(char_id, {"messages": [], "favorability": 0})
+    if isinstance(data, list):
+        data = {"messages": data, "favorability": 0}
+    return data
 
 @app.post("/chats/{char_id}")
-async def save_chat_history(char_id: str, history: List[dict]):
-    chats_db[char_id] = history
+async def save_chat_history(char_id: str, chat_data: dict):
+    # data can be either a list (legacy) or a dict (new)
+    if isinstance(chat_data, list):
+        chats_db[char_id] = {"messages": chat_data, "favorability": chats_db.get(char_id, {}).get("favorability", 0) if isinstance(chats_db.get(char_id), dict) else 0}
+    else:
+        chats_db[char_id] = chat_data
+        
     save_db(CHATS_FILE, chats_db)
     return {"message": "Chat history saved"}

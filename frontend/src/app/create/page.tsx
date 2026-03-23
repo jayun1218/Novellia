@@ -101,7 +101,7 @@ const CreateCharacterPage = () => {
     setIsLoading(true);
     try {
       // Simulate/Implement API Call
-      const response = await fetch('http://localhost:8000/characters', {
+      const response = await fetch('http://127.0.0.1:8000/characters', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -147,7 +147,7 @@ const CreateCharacterPage = () => {
     try {
       // DALL-E 3의 고퀄리티를 위해 3개 정도 시안을 동시 생성 시도
       const promises = [1, 2, 3].map(() => 
-        fetch('http://localhost:8000/generate-image', {
+        fetch('http://127.0.0.1:8000/generate-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt: visualPrompt }),
@@ -179,7 +179,7 @@ const CreateCharacterPage = () => {
 
     setIsGenerating(true);
     try {
-      const response = await fetch('http://localhost:8000/upload-image', {
+      const response = await fetch('http://127.0.0.1:8000/upload-image', {
         method: 'POST',
         body: uploadFormData,
       });
@@ -227,7 +227,7 @@ const CreateCharacterPage = () => {
     }
     setIsScraping(true);
     try {
-      const response = await fetch('http://localhost:8000/scrape-namuwiki', {
+      const response = await fetch('http://127.0.0.1:8000/scrape-namuwiki', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: namuUrl }),

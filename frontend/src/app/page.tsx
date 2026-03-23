@@ -35,8 +35,8 @@ const popularCharacters = [
     description: "코트 위의 절대적인 지배자, 당신의 심장까지 세팅하는 천재 세터",
     tags: ["배구", "이나리자키", "천재", "츤데레"],
     chatCount: "1.2만",
-    avatarUrl: "http://localhost:8000/uploads/atsumu.png",
-    coverUrl: "http://localhost:8000/uploads/atsumu.png"
+    avatarUrl: "http://127.0.0.1:8000/uploads/atsumu.png",
+    coverUrl: "http://127.0.0.1:8000/uploads/atsumu.png"
   }
 ];
 
@@ -46,7 +46,7 @@ export default function Home() {
   useEffect(() => {
     const fetchMyCharacters = async () => {
       try {
-        const response = await fetch('http://localhost:8000/characters');
+        const response = await fetch('http://127.0.0.1:8000/characters');
         if (response.ok) {
           const data = await response.json();
           setMyCharacters(data);
