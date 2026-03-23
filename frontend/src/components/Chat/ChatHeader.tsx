@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ShieldCheck, ChevronDown, Settings, User, Zap, Palette, Image as ImageIcon, Check } from 'lucide-react';
+import { ChevronLeft, ShieldCheck, ChevronDown, Settings, User, Zap, Palette, Image as ImageIcon, Check, Clock } from 'lucide-react';
 import Link from 'next/link';
 
 interface ChatSettings {
@@ -20,6 +20,8 @@ interface ChatHeaderProps {
   onSettingsChange: (settings: ChatSettings) => void;
   onResetChat: () => void;
   onAvatarClick: (char: any) => void;
+  onOpenScenarios: () => void;
+  onOpenTimeline: () => void;
 }
 
 const ChatHeader: React.FC<ChatHeaderProps> = ({ 
@@ -31,7 +33,9 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
   settings,
   onSettingsChange,
   onResetChat,
-  onAvatarClick
+  onAvatarClick,
+  onOpenScenarios,
+  onOpenTimeline
 }) => {
   const [showProfiles, setShowProfiles] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -157,7 +161,24 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
         )}
 
         {/* Right Section: Selectors & Settings */}
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-1">
+          <button 
+            onClick={onOpenScenarios}
+            className="p-2 hover:bg-orange-500/10 rounded-full transition-all group lg:flex hidden items-center gap-2 px-3 border border-transparent hover:border-orange-500/20"
+            title="시나리오 선택"
+          >
+            <Zap className="w-5 h-5 text-orange-400 group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-black text-orange-400/80 uppercase tracking-wider">Scenario</span>
+          </button>
+
+          <button 
+            onClick={onOpenTimeline}
+            className="p-2 hover:bg-white/5 rounded-full transition-all group"
+            title="타임라인 보기"
+          >
+            <Clock className="w-5 h-5 text-gray-400 group-hover:text-primary transition-colors" />
+          </button>
+          
           {/* User Persona Selector */}
           <div className="relative">
             <button 

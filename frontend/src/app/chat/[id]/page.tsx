@@ -1,11 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, use } from 'react';
+import React, { useState, useEffect, useRef, use } from 'react';
+import { Send, Image as ImageIcon, Sparkles, Plus, Settings, Trash2, X, Clock, User, Heart, ChevronRight, Eye } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
 import ChatHeader from '@/components/Chat/ChatHeader';
 import Message from '@/components/Chat/Message';
 import ChatInput from '@/components/Chat/ChatInput';
 import CharacterProfileModal from '@/components/Chat/CharacterProfileModal';
+import ScenarioSelector from '@/components/Chat/ScenarioSelector';
+import StoryTimeline from '@/components/Chat/StoryTimeline';
 import QuestWidget from '@/components/Chat/QuestWidget';
+import BottomNav from '@/components/Layout/BottomNav';
 
 const popularCharacters: Record<string, any> = {
   'ma4': { 
@@ -52,6 +57,14 @@ const popularCharacters: Record<string, any> = {
   }
 };
 
+const BACKGROUNDS: Record<string, string> = {
+  'gym': 'http://127.0.0.1:8000/uploads/gym_bg.png',
+  'night_park': 'http://127.0.0.1:8000/uploads/night_park_bg.png',
+  'sunset_court': 'http://127.0.0.1:8000/uploads/sunset_court_bg.png',
+  'training_camp': 'http://127.0.0.1:8000/uploads/gym_bg.png',
+  'barbecue': 'http://127.0.0.1:8000/uploads/night_park_bg.png',
+};
+
 export default function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [activeCharacters, setActiveCharacters] = useState<any[]>([]);
@@ -62,6 +75,12 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const [selectedProfileIndex, setSelectedProfileIndex] = useState<number>(0);
   const [favorability, setFavorability] = useState(0);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false);
+  const [scenarios, setScenarios] = useState<any[]>([]);
+  const [activeScenario, setActiveScenario] = useState<string | null>(null);
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [timelineData, setTimelineData] = useState<any[]>([]);
+  const [bgUrl, setBgUrl] = useState<string | null>(null);
   const [settings, setSettings] = useState({
     theme: 'basic',
     showProfile: true,
@@ -183,8 +202,15 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         const data = await response.json();
         const reply = data.reply;
         
-        // 멀티 캐릭터 답변 분리 로직 ([이름] 태그 기준, 상태창/FEED/호감도 태그 제외)
-        const parts = reply.trim().split(/(\[(?![^\]]*?(?:상태창|FEED|호감도))[^\]]+\])/).filter(Boolean);
+        // 배경 변경 태그 추출 및 적용
+        const bgMatch = reply.match(/\[BG:\s*(.*?)\]/);
+        if (bgMatch && settings.autoBg) {
+          const style = bgMatch[1].trim();
+          if (BACKGROUNDS[style]) setBgUrl(BACKGROUNDS[style]);
+        }
+
+        // 멀티 캐릭터 답변 분리 로직 복구
+        const parts = reply.trim().split(/(\[(?![^\]]*?(?:상태창|FEED|호감도|BG))[^\]]+\])/).filter(Boolean);
         const newAiMsgs: any[] = [];
         
         if (parts.length >= 2 && parts[0].startsWith('[')) {
@@ -205,7 +231,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         if (newAiMsgs.length === 0) {
           newAiMsgs.push({
             id: Date.now() + 1,
-            content: reply,
+            content: reply.replace(/\[BG:\s*.*?\]/g, '').trim(),
             isAi: true,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           });
@@ -279,6 +305,60 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     }
   };
 
+  const handleObserve = async () => {
+    if (isGeneratingImage || messages.length === 0) return; // Using isGeneratingImage as a general loading state
+    
+    setIsGeneratingImage(true); // Using setIsGeneratingImage to indicate loading
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/chat/${id}/observe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: '[관찰 모드]',
+          chat_history: messages.map(m => ({ 
+            role: m.isAi ? 'assistant' : 'user', 
+            content: m.content 
+          })),
+          user_profile_index: selectedProfileIndex,
+          char_ids: activeCharacters.map(p => p.id)
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const reply = data.reply;
+        
+        const parts = reply.split(/(?=\[.*?\])/g).filter((p: string) => p.trim());
+        const newMessages = parts.map((part: string) => {
+          const nameMatch = part.match(/^\[(.*?)\]/);
+          const name = nameMatch ? nameMatch[1] : activeCharacters[0]?.name;
+          const content = part.replace(/^\[.*?\]/, '').trim();
+          
+          return {
+            id: Date.now() + Math.random(),
+            content,
+            name,
+            isAi: true,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          };
+        });
+
+        setMessages(prev => [...prev, ...newMessages]);
+
+        // 관찰 모드에서도 배경 변경 적용
+        const bgMatch = reply.match(/\[BG:\s*(.*?)\]/);
+        if (bgMatch && settings.autoBg) {
+          const style = bgMatch[1].trim();
+          if (BACKGROUNDS[style]) setBgUrl(BACKGROUNDS[style]);
+        }
+      }
+    } catch (err) {
+      console.error('Observation failed:', err);
+    } finally {
+      setIsGeneratingImage(false); // Using setIsGeneratingImage to indicate loading complete
+    }
+  };
+
   const handleResetChat = async () => {
     const charId = activeCharacters[0]?.id || id;
     try {
@@ -296,21 +376,71 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   };
 
   const handleProfileClick = async (char: any) => {
-    setSelectedCharacter(char);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/chats/${char.id}`);
-      if (res.ok) {
-        const data = await res.json();
+      // 캐릭터 상세 정보 가져오기 (unlockables 포함)
+      const resChar = await fetch(`http://127.0.0.1:8000/characters/search?q=${encodeURIComponent(char.name)}`);
+      if (resChar.ok) {
+        const found = await resChar.json();
+        if (found.length > 0) {
+          setSelectedCharacter(found[0]);
+        } else {
+          setSelectedCharacter(char);
+        }
+      }
+
+      // 호감도 정보 가져오기
+      const resFav = await fetch(`http://127.0.0.1:8000/chats/${char.id}`);
+      if (resFav.ok) {
+        const data = await resFav.json();
         setFavorability(data.favorability || 0);
       }
     } catch (err) {
-      console.error('Fetch fav error:', err);
+      console.error('Fetch profile/fav error:', err);
     }
     setIsProfileModalOpen(true);
   };
 
+  const handleSelectScenario = (scenarioId: string) => {
+    const scenario = scenarios.find(s => s.id === scenarioId);
+    if (!scenario) return;
+    
+    setActiveScenario(scenarioId);
+    setMessages(prev => [...prev, {
+      id: Date.now(),
+      content: `[시나리오 시작: ${scenario.title}]\n${scenario.description}`,
+      isAi: true,
+      name: 'System',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }]);
+  };
+
+  useEffect(() => {
+    const fetchScenarios = async () => {
+      try {
+        const res = await fetch('http://127.0.0.1:8000/scenarios');
+        if (res.ok) setScenarios(await res.json());
+      } catch (err) {
+        console.error('Fetch scenarios error:', err);
+      }
+    };
+    fetchScenarios();
+  }, []);
+
+  const handleOpenTimeline = async () => {
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/chat/${id}/timeline`);
+      if (res.ok) setTimelineData(await res.json());
+    } catch (err) {
+      console.error('Fetch timeline error:', err);
+    }
+    setIsTimelineOpen(true);
+  };
+
   return (
-    <main className="min-h-screen bg-background text-foreground flex flex-col pt-16">
+    <main 
+      className="min-h-screen bg-background text-foreground flex flex-col pt-16 transition-all duration-1000 bg-cover bg-center"
+      style={bgUrl ? { backgroundImage: `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.8)), url(${bgUrl})` } : {}}
+    >
       <ChatHeader 
         activeCharacters={activeCharacters} 
         onInvite={inviteCharacter}
@@ -321,6 +451,8 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         onSettingsChange={setSettings}
         onResetChat={handleResetChat}
         onAvatarClick={handleProfileClick}
+        onOpenScenarios={() => setIsScenarioModalOpen(true)}
+        onOpenTimeline={handleOpenTimeline}
       />
 
       <div className="flex-1 max-w-4xl mx-auto w-full px-4 pb-32">
@@ -342,6 +474,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       <ChatInput 
         onSend={handleSend} 
         onGenerateScene={handleGenerateScene}
+        onObserve={handleObserve}
         isGeneratingImage={isGeneratingImage}
       />
 
@@ -353,6 +486,22 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           favorability={favorability}
         />
       )}
+
+      <ScenarioSelector 
+        isOpen={isScenarioModalOpen}
+        onClose={() => setIsScenarioModalOpen(false)}
+        onSelect={handleSelectScenario}
+        scenarios={scenarios}
+      />
+
+      <StoryTimeline 
+        isOpen={isTimelineOpen}
+        onClose={() => setIsTimelineOpen(false)}
+        timeline={timelineData}
+        characterName={activeCharacters[0]?.name || 'Character'}
+      />
+
+      <BottomNav />
 
       {/* Quest System Widget */}
       <QuestWidget 

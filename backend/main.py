@@ -155,6 +155,11 @@ popular_characters_data = {
         "lorebook": [
             {"name": "이나리자키", "keywords": ["이나리자키", "고교", "배구"], "content": "효고현의 배구 강호교."},
             {"name": "미야 오사무", "keywords": ["오사무", "사무", "동생", "쌍둥이"], "content": "아츠무의 쌍둥이 동생. 먹는 걸 좋아함."}
+        ],
+        "unlockables": [
+            {"threshold": 30, "title": "숨겨진 진심", "content": "사실 너랑 대화할 때가 제일 긴장돼. 너한테만은 완벽한 모습만 보여주고 싶으니까."},
+            {"threshold": 60, "title": "우승의 약속", "content": "너랑 같이 간다면, 어떤 결승전이라도 이길 수 있을 것 같아. 내 옆에서 지켜봐 줄래?"},
+            {"threshold": 90, "title": "특별한 제안", "content": "배구 말고, 그냥 너랑 단둘이 있고 싶을 때가 많아. 이건... 우리 둘만의 비밀이다?"}
         ]
     },
     "ma5": {
@@ -173,7 +178,12 @@ popular_characters_data = {
         "tags": ["배구", "아오바죠사이", "세터", "주장", "대왕님"],
         "lorebook": [
             {"name": "아오바죠사이", "keywords": ["세이죠", "아오바", "민트색"], "content": "현 내에서 시라토리자와와 대등하게 겨루는 강호교."},
-            {"name": "이와이즈미 하지메", "keywords": ["이와쨩", "하지메", "파트너"], "content": "오이카와의 소꿉친구이자 최고의 파트너 에이스."}
+            {"name": "이와이즈미 하지메", "keywords": ["이와쨩", "에이스", "파트너"], "content": "오이카와의 소꿉친구이자 최고의 파트너."}
+        ],
+        "unlockables": [
+            {"threshold": 30, "title": "천재와 노력가", "content": "너도 내가 천재라고 생각해? 사실 난 누구보다 평범한 사람일지도 몰라. 하지만 네 앞에서는 최고가 되고 싶어."},
+            {"threshold": 60, "title": "토오루의 눈물", "content": "항상 웃고만 있을 수는 없더라고. 가끔은 나도 무너질 것 같을 때가 있어... 그럴 때 네가 곁에 있어줬으면 좋겠어."},
+            {"threshold": 90, "title": "가장 소중한 배구공", "content": "나한테 배구보다 소중한 게 생길 줄은 몰랐어. 네가 내 코트 안으로 들어와줘서 정말 기뻐."}
         ]
     },
     "ma6": {
@@ -192,7 +202,12 @@ popular_characters_data = {
         "tags": ["배구", "시라토리자와", "에이스", "주장", "절대왕자"],
         "lorebook": [
             {"name": "시라토리자와", "keywords": ["시라토리", "백조택", "보라색"], "content": "현 내 최강의 전력을 자랑하는 전국구 강호교."},
-            {"name": "텐도 사토리", "keywords": ["텐도", "게스몬스터"], "content": "우시지마의 팀 동료이자 독특한 직감을 가진 미들 블로커."}
+            {"name": "텐도 사토리", "keywords": ["텐도", "게스몬스터"], "content": "우시지마의 팀 동료이자 독특한 블로킹 스타일을 가진 선수."}
+        ],
+        "unlockables": [
+            {"threshold": 30, "title": "강함의 의미", "content": "나는 항상 이기는 것만 생각하며 살았다. 하지만 너를 만나고 처음으로 '지키고 싶은 것'에 대해 고민하게 되었다."},
+            {"threshold": 60, "title": "시라토리자와로 와라", "content": "단순한 권유가 아니다. 내 곁에 네가 있는 것이 나에게 가장 큰 힘이 된다는 뜻이다."},
+            {"threshold": 90, "title": "와카토시의 진심", "content": "너의 존재는 나에게 승리보다 더 달콤한 보상이다. 평생 내 에이스가 되어주겠나?"}
         ]
     },
     "ma7": {
@@ -212,6 +227,11 @@ popular_characters_data = {
         "lorebook": [
             {"name": "카라스노", "keywords": ["카라스노", "까마귀", "날지못하는까마귀"], "content": "과거의 영광을 되찾기 위해 비상하는 미야기현의 배구팀."},
             {"name": "카게야마 토비오", "keywords": ["카게야마", "제왕", "세터", "파트너"], "content": "히나타의 최고의 파트너이자 라이벌인 천재 세터."}
+        ],
+        "unlockables": [
+            {"threshold": 30, "title": "최강의 미끼", "content": "코트 위에서 내가 가장 높이 뛸 수 있는 건 네가 지켜봐 주고 있기 때문이야! 정말이야!"},
+            {"threshold": 60, "title": "작은 거인의 꿈", "content": "언젠가 더 큰 무대에 설 때도, 너랑 같이 웃으면서 배구하고 싶어. 부탁이야, 나랑 계속 놀아줘!"},
+            {"threshold": 90, "title": "너라는 태양", "content": "너랑 있으면 내 심장이 미친 듯이 뛰어! 배구할 때보다 더! 이게 무슨 느낌일까 쇼요?"}
         ]
     },
     "ma8": {
@@ -231,6 +251,11 @@ popular_characters_data = {
         "lorebook": [
             {"name": "다테 공업 고등학교", "keywords": ["다테공", "철벽", "리드블로킹"], "content": "전국에서도 손꼽히는 블로킹 능력을 갖춘 팀."},
             {"name": "아오네 타카노리", "keywords": ["아오네", "철벽의핵심"], "content": "말수가 적지만 압도적인 존재감을 가진 후타쿠치의 팀 동료이자 블로킹 파트너."}
+        ],
+        "unlockables": [
+            {"threshold": 30, "title": "철벽 너머의 시선", "content": "헤에, 내 블로킹보다 너한테 더 시선이 간다면 믿어줄 거야? 나도 참 중상이라니까."},
+            {"threshold": 60, "title": "켄지의 약점", "content": "남들 비꼬는 건 잘해도 정작 내 속마음 말하는 건 질색인데... 너 앞에서는 입이 멋대로 열리네."},
+            {"threshold": 90, "title": "단 한 사람의 응원", "content": "관중석 수천 명보다 네 응원 한 마디가 내 철벽을 더 견고하게 만들어. 이제 못 빠져나간다?"}
         ]
     },
     "ma9": {
@@ -250,6 +275,11 @@ popular_characters_data = {
         "lorebook": [
             {"name": "후쿠로다니 학원", "keywords": ["후쿠로다니", "부엉이"], "content": "도쿄의 배구 강호교로, 팀원들이 보쿠토를 잘 보좌하는 것이 특징."},
             {"name": "아카아시 케이지", "keywords": ["아카아시", "세터"], "content": "보쿠토의 '의기소침 모드'를 가장 잘 다루는 냉정하고 유능한 세터."}
+        ],
+        "unlockables": [
+            {"threshold": 30, "title": "에이스의 증명", "content": "봤어? 봤어?! 방금 내 샷! 너한테 칭찬받으니까 평소보다 기분 최고라고!!"},
+            {"threshold": 60, "title": "코타로의 의기소침", "content": "헤이 헤이 헤이... 오늘은 왠지 좀 기운이 없네. 네가 '코타로 멋져!'라고 한 번만 해주면 나을 것 같아!"},
+            {"threshold": 90, "title": "불멸의 부엉이", "content": "내 모든 스파이크는 너를 위해 날리는 거야. 평생 내 에이스 관중이 되어줘! 사랑한다!"}
         ]
     }
 }
@@ -391,6 +421,7 @@ async def chat(request: ChatRequest):
       Example: [CharA] "Hi!", [CharB] "Hello."
     - Favorability: Add '[Name 호감도: +n]' (n: -2 to +2) for relevant characters at the end of the message.
     - Style: *actions*, (inner thoughts or scene changes).
+    - Background: If the scene or location changes (e.g. going to gym, park, cafe), add '[BG: style_name]' ONLY ONCE at the end. Recommended styles: gym, night_park, cafe, training_camp, barbecue, sunset_court.
     - SNS Feed: If a memorable event or high-impact moment occurs, add '[FEED: post content]' in the character's voice at the end. (Auto-post to SNS)
     Respond in Korean.
     """
@@ -599,3 +630,87 @@ async def delete_gallery_image(char_id: str, image_url: str):
         save_db(CHATS_FILE, chats_db)
         return {"success": True}
     return {"error": "Image not found in chat history"}, 404
+
+@app.get("/chat/{char_id}/timeline")
+async def get_timeline(char_id: str):
+    if char_id not in chats_db:
+        return []
+        
+    data = chats_db[char_id]
+    messages = data if isinstance(data, list) else data.get("messages", [])
+    
+    timeline = []
+    for msg in messages:
+        content = msg.get("content", "")
+        # 핵심 키워드나 태그 기반으로 주요 마일스톤 추출
+        if "[시나리오 시작" in content:
+            timeline.append({
+                "type": "scenario",
+                "title": content.split("]")[0].replace("[", ""),
+                "timestamp": msg.get("timestamp"),
+                "description": content.split("\n")[1] if "\n" in content else "새로운 상황극이 시작되었습니다."
+            })
+        elif msg.get("imageUrl"):
+            timeline.append({
+                "type": "image",
+                "title": "특별한 기억 공유",
+                "timestamp": msg.get("timestamp"),
+                "imageUrl": msg.get("imageUrl"),
+                "description": "함께 새로운 추억 사진을 남겼습니다."
+            })
+        elif "사랑" in content or "우정" in content or "함께" in content:
+            # 간단한 감성 분석(모방)을 통한 주요 대사 추출
+            if len(content) < 50:
+                timeline.append({
+                    "type": "moment",
+                    "title": "마음을 울린 한 마디",
+                    "timestamp": msg.get("timestamp"),
+                    "description": content
+                })
+                
+    # 중복 제거 및 최신순 정렬 (기본은 시간순으로 보여주는게 좋음)
+    return timeline
+
+SCENARIOS = [
+    {
+        "id": "practice",
+        "title": "방과 후 자율 연습",
+        "description": "조용한 체육관, 오직 배구공 튀기는 소리뿐. 캐릭터와 팀워크를 다지며 연습에 몰두합니다.",
+        "goal": "특급 기술 습득하기",
+        "system_instruction": "배경은 방과 후 자율 연습 중인 체육관입니다. 분위기는 열정적이고 집중력 있는 상태입니다."
+    },
+    {
+        "id": "training_camp",
+        "title": "도쿄 합숙 훈련 (바비큐 파티)",
+        "description": "치열한 연습이 끝나고 찾아온 즐거운 저녁 식사 시간! 다른 학교 선수들과도 어울려보세요.",
+        "goal": "다른 학교 캐릭터와 친해지기",
+        "system_instruction": "배경은 도쿄 합숙 소의 저녁 바비큐 파티장입니다. 분위기는 시끌벅적하고 즐겁습니다. 캐릭터들이 평소보다 고기 앞에서 들뜬 상태입니다."
+    },
+    {
+        "id": "match_verge",
+        "title": "결승전 전야",
+        "description": "내일은 드디어 전국 대회 예선 결승. 긴장감과 설레임이 교차하는 밤, 캐릭터와 속마음을 나눠보세요.",
+        "goal": "캐릭터의 불안감 해소 및 격려",
+        "system_instruction": "배경은 경기 전날 밤의 숙박 시설 또는 공원입니다. 긴장감이 흐르며 진지하고 감성적인 대화가 오갑니다."
+    }
+]
+
+@app.get("/scenarios")
+async def get_scenarios():
+    return SCENARIOS
+
+@app.post("/chat/{id}/observe")
+async def observe_chat(id: str, request: ChatRequest):
+    # 유저 메시지 없이 캐릭터들끼리 대화하도록 유도하는 시스템 메시지 추가
+    system_instruction = "\n[SYSTEM: 유저는 현재 대화를 관찰 중입니다. 캐릭터들은 현재 상황과 서로의 성격에 기반하여 유저의 개입 없이 자연스럽게 대화를 이어가세요. 서로를 부르거나 도발하며 티격태격하는 생동감 넘치는 상호작용을 보여주세요. 절대 유저에게 직접 말을 걸지 마세요.]"
+    
+    modified_history = request.chat_history + [{"role": "system", "content": system_instruction}]
+    
+    # 기존 chat 엔드포인트 로직 재사용
+    # (실제 대화 로직을 분리하지 않았으므로 직접 전달)
+    return await chat(id, ChatRequest(
+        message="[관찰 모드: 계속 대화해줘]", 
+        chat_history=modified_history,
+        user_profile_index=request.user_profile_index,
+        char_ids=request.char_ids
+    ))

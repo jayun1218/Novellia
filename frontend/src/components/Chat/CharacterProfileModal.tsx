@@ -1,5 +1,11 @@
 import React from 'react';
-import { X, MessageCircle, Phone, Star, Share2 } from 'lucide-react';
+import { X, MessageCircle, Phone, Star, Share2, Lock, Unlock, Gift, Heart } from 'lucide-react';
+
+interface Unlockable {
+  threshold: number;
+  title: string;
+  content: string;
+}
 
 interface CharacterProfileModalProps {
   isOpen: boolean;
@@ -9,6 +15,7 @@ interface CharacterProfileModalProps {
     avatarUrl: string;
     coverUrl?: string;
     description?: string;
+    unlockables?: Unlockable[];
   };
   favorability?: number;
 }
@@ -25,9 +32,9 @@ const CharacterProfileModal: React.FC<CharacterProfileModalProps> = ({ isOpen, o
       />
       
       {/* Modal Content */}
-      <div className="relative w-full max-w-[420px] h-full sm:h-[720px] bg-[#1a1a1b] sm:rounded-[40px] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+      <div className="relative w-full max-w-[420px] h-full sm:h-[800px] bg-[#1a1a1b] sm:rounded-[40px] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
         {/* Cover Image */}
-        <div className="absolute top-0 w-full h-full overflow-hidden">
+        <div className="absolute top-0 w-full h-[300px] overflow-hidden">
           <img 
             src={character.coverUrl || character.avatarUrl || '/avatar.png'} 
             className="w-full h-full object-cover opacity-40 scale-110 blur-[1px]" 
@@ -45,17 +52,14 @@ const CharacterProfileModal: React.FC<CharacterProfileModalProps> = ({ isOpen, o
             <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
               <Star className="w-5 h-5 text-white/70" />
             </button>
-            <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
-              <Share2 className="w-5 h-5 text-white/70" />
-            </button>
           </div>
         </div>
 
-        {/* Profile Info Section (Centered like KakaoTalk) */}
-        <div className="relative flex-1 flex flex-col items-center justify-end pb-24 px-8 z-10 text-center">
-          {/* Avatar Container */}
-          <div className="mb-6 relative group">
-            <div className="w-24 h-24 rounded-[32px] overflow-hidden border-2 border-white/20 shadow-2xl bg-surface transform transition-transform group-hover:scale-105 active:scale-95 duration-300">
+        {/* Profile Info Section */}
+        <div className="relative flex-1 flex flex-col items-center pt-24 pb-8 px-8 z-10 text-center overflow-y-auto custom-scrollbar">
+          {/* Avatar */}
+          <div className="mb-4 relative group">
+            <div className="w-24 h-24 rounded-[32px] overflow-hidden border-2 border-white/20 shadow-2xl bg-surface">
               <img 
                 src={character.avatarUrl || '/avatar.png'} 
                 className="w-full h-full object-cover" 
@@ -64,45 +68,76 @@ const CharacterProfileModal: React.FC<CharacterProfileModalProps> = ({ isOpen, o
             </div>
           </div>
 
-          <h2 className="text-2xl font-black text-white mb-2 tracking-tight">{character.name}</h2>
+          <h2 className="text-2xl font-black text-white mb-1 tracking-tight">{character.name}</h2>
           
-          {/* Favorability Section */}
-          <div className="flex flex-col items-center gap-2 mb-4 w-full max-w-[200px]">
+          {/* Affection Gauge */}
+          <div className="flex flex-col items-center gap-1.5 mb-6 w-full max-w-[220px]">
             <div className="flex items-center gap-1.5">
-              <Star className="w-4 h-4 text-rose-500 fill-rose-500" />
-              <span className="text-[13px] font-black text-rose-500 uppercase tracking-tighter">Affection {favorability}%</span>
+              <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
+              <span className="text-[12px] font-black text-rose-500 uppercase">Affection {favorability}%</span>
             </div>
-            <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+            <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/5">
               <div 
-                className="h-full bg-gradient-to-r from-rose-400 to-rose-600 transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(251,113,133,0.5)]" 
+                className="h-full bg-gradient-to-r from-rose-400 to-rose-600 rounded-full transition-all duration-1000 ease-out" 
                 style={{ width: `${favorability}%` }} 
               />
             </div>
           </div>
 
-          <p className="text-sm text-gray-400 font-medium leading-relaxed max-w-[280px]">
-            {character.description || '반갑습니다! 저와 대화해봐요.'}
+          <p className="text-xs text-gray-400 font-medium leading-relaxed max-w-[280px] mb-8 bg-white/5 p-3 rounded-2xl">
+            {character.description}
           </p>
 
-          {/* Kakao-style Bottom Actions */}
-          <div className="mt-12 flex items-center gap-14 border-t border-white/10 pt-10 w-full justify-center">
-            <button 
-              onClick={onClose}
-              className="flex flex-col items-center gap-3 group"
-            >
-              <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-primary/20 transition-all group-active:scale-90 shadow-lg">
-                <MessageCircle className="w-5 h-5 text-white group-hover:text-primary transition-colors" />
-              </div>
-              <span className="text-[11px] font-bold text-gray-400 group-hover:text-white transition-colors">1:1 채팅</span>
-            </button>
-
-            <button className="flex flex-col items-center gap-3 group opacity-50 cursor-not-allowed">
-              <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
-                <Phone className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-[11px] font-bold text-gray-400">통화하기</span>
-            </button>
+          {/* Secret Content Section */}
+          <div className="w-full space-y-3 pt-4 border-t border-white/5">
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <Gift className="w-4 h-4 text-primary" />
+              <h3 className="text-xs font-black text-white uppercase tracking-widest">Secret Moments</h3>
+            </div>
+            
+            {character.unlockables?.map((item, idx) => {
+              const isUnlocked = favorability >= item.threshold;
+              return (
+                <div 
+                  key={idx}
+                  className={`p-4 rounded-3xl border transition-all duration-500 ${
+                    isUnlocked 
+                      ? 'bg-primary/10 border-primary/20 scale-100' 
+                      : 'bg-white/[0.02] border-white/5 scale-[0.98] opacity-60'
+                  }`}
+                >
+                  <div className="flex justify-between items-center mb-1">
+                    <span className={`text-[11px] font-black uppercase tracking-tighter ${isUnlocked ? 'text-primary' : 'text-gray-500'}`}>
+                      {isUnlocked ? item.title : `Unlocked at ${item.threshold}%`}
+                    </span>
+                    {isUnlocked ? <Unlock className="w-3.5 h-3.5 text-primary" /> : <Lock className="w-3.5 h-3.5 text-gray-600" />}
+                  </div>
+                  <p className={`text-[13px] leading-relaxed text-left ${isUnlocked ? 'text-gray-200' : 'text-gray-600 italic select-none'}`}>
+                    {isUnlocked ? `"${item.content}"` : '이 마음의 비밀은 아직 잠겨 있습니다.'}
+                  </p>
+                </div>
+              );
+            })}
           </div>
+
+          <div className="h-24" /> {/* Spacer */}
+        </div>
+
+        {/* Kakao-style Bottom Actions */}
+        <div className="absolute bottom-0 w-full bg-gradient-to-t from-[#1a1a1b] via-[#1a1a1b] to-transparent pt-10 pb-12 flex items-center gap-14 justify-center z-20">
+          <button onClick={onClose} className="flex flex-col items-center gap-3 group">
+            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-primary/20 transition-all shadow-lg border border-white/10">
+              <MessageCircle className="w-5 h-5 text-white group-hover:text-primary transition-colors" />
+            </div>
+            <span className="text-[11px] font-bold text-gray-400 group-hover:text-white transition-colors">1:1 채팅</span>
+          </button>
+
+          <button className="flex flex-col items-center gap-3 group opacity-50 cursor-not-allowed">
+            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
+              <Phone className="w-5 h-5 text-white/50" />
+            </div>
+            <span className="text-[11px] font-bold text-gray-400">보이스톡</span>
+          </button>
         </div>
       </div>
     </div>

@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Send, Plus, Smile, Wand2, RefreshCw } from 'lucide-react';
+import { Send, Plus, Smile, Wand2, RefreshCw, Eye } from 'lucide-react';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
   onGenerateScene: (prompt: string) => void;
+  onObserve: () => void;
   isGeneratingImage?: boolean;
 }
 
-const ChatInput: React.FC<ChatInputProps> = ({ onSend, onGenerateScene, isGeneratingImage }) => {
+const ChatInput: React.FC<ChatInputProps> = ({ onSend, onGenerateScene, onObserve, isGeneratingImage }) => {
   const [text, setText] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -21,15 +22,28 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, onGenerateScene, isGenera
   return (
     <div className="fixed bottom-0 w-full glass px-4 py-4 pb-8">
       <form onSubmit={handleSubmit} className="flex items-center gap-2 max-w-4xl mx-auto">
-        <button 
-          type="button" 
-          onClick={() => onGenerateScene(text)}
-          disabled={isGeneratingImage}
-          className={`p-2 rounded-xl transition-all ${isGeneratingImage ? 'bg-primary/20 text-primary' : 'text-gray-400 hover:text-primary hover:bg-primary/10'}`}
-          title="현재 장면 이미지 생성"
-        >
-          {isGeneratingImage ? <RefreshCw className="w-6 h-6 animate-spin" /> : <Wand2 className="w-6 h-6" />}
-        </button>
+        <div className="flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/10">
+          <button 
+            type="button" 
+            onClick={() => onGenerateScene(text)}
+            disabled={isGeneratingImage}
+            className={`p-2 rounded-xl transition-all ${isGeneratingImage ? 'bg-primary/20 text-primary' : 'text-gray-400 hover:text-primary hover:bg-primary/10'}`}
+            title="현재 장면 이미지 생성"
+          >
+            {isGeneratingImage ? <RefreshCw className="w-6 h-6 animate-spin" /> : <Wand2 className="w-6 h-6" />}
+          </button>
+          
+          <button 
+            type="button" 
+            onClick={onObserve}
+            disabled={isGeneratingImage}
+            className={`p-2 rounded-xl transition-all text-gray-400 hover:text-blue-400 hover:bg-blue-400/10`}
+            title="캐릭터끼리 대화시키기 (관찰 모드)"
+          >
+            <Eye className="w-6 h-6" />
+          </button>
+        </div>
+
         <div className="relative flex-1">
           <input
             type="text"
