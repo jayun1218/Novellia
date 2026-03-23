@@ -19,6 +19,7 @@ interface ChatHeaderProps {
   settings: ChatSettings;
   onSettingsChange: (settings: ChatSettings) => void;
   onResetChat: () => void;
+  onAvatarClick: () => void;
 }
 
 const ChatHeader: React.FC<ChatHeaderProps> = ({ 
@@ -30,7 +31,8 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
   onProfileSelect,
   settings,
   onSettingsChange,
-  onResetChat
+  onResetChat,
+  onAvatarClick
 }) => {
   const [showProfiles, setShowProfiles] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -50,21 +52,24 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
     <div className="glass fixed top-0 w-full z-50 border-b border-white/5">
       <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
         {/* Left Section: Back button & Character info */}
-        <div className="flex items-center gap-3 overflow-hidden min-w-0">
+        <div className="flex items-center gap-3 overflow-hidden min-w-0 flex-1">
           <Link href="/" className="p-1.5 hover:bg-white/5 rounded-full transition-colors flex-shrink-0">
             <ChevronLeft className="w-6 h-6 text-gray-400" />
           </Link>
-          <div className="flex items-center gap-3 min-w-0">
+          <div 
+            onClick={onAvatarClick}
+            className="flex items-center gap-3 min-w-0 cursor-pointer hover:opacity-80 transition-all active:scale-95 group"
+          >
             <div className="relative flex-shrink-0">
               <img 
                 src={avatarUrl || '/avatar.png'} 
                 alt={name} 
-                className="w-10 h-10 rounded-full object-cover border border-white/10" 
+                className="w-10 h-10 rounded-full object-cover border border-white/10 group-hover:border-primary/50 transition-colors" 
               />
               <div className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 bg-green-500 border-2 border-[#050505] rounded-full shadow-lg"></div>
             </div>
             <div className="min-w-0">
-              <h2 className="font-bold text-sm flex items-center gap-1.5 text-white truncate">
+              <h2 className="font-bold text-sm flex items-center gap-1.5 text-white truncate group-hover:text-primary transition-colors">
                 {name} <ShieldCheck className="w-3.5 h-3.5 text-primary flex-shrink-0" />
               </h2>
               <p className="text-[10px] text-gray-500 font-medium truncate">{status}</p>

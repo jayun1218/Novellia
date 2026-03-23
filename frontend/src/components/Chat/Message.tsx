@@ -16,9 +16,10 @@ interface MessageProps {
   aiAvatarUrl?: string;
   aiName?: string;
   favorability?: number;
+  onAvatarClick?: () => void;
 }
 
-const Message: React.FC<MessageProps> = ({ content, isAi, timestamp, settings, userProfile, aiAvatarUrl, aiName, favorability }) => {
+const Message: React.FC<MessageProps> = ({ content, isAi, timestamp, settings, userProfile, aiAvatarUrl, aiName, favorability, onAvatarClick }) => {
   const [isStatusOpen, setIsStatusOpen] = useState(false);
   const theme = settings?.theme || 'basic';
   const showProfile = settings?.showProfile ?? true;
@@ -78,7 +79,10 @@ const Message: React.FC<MessageProps> = ({ content, isAi, timestamp, settings, u
       {/* Avatar Section */}
       {(isAi || showProfile) && (
         <div className="flex-shrink-0 mt-1">
-          <div className="w-9 h-9 rounded-full overflow-hidden border border-white/10 bg-surface">
+          <div 
+            className={`w-9 h-9 rounded-full overflow-hidden border border-white/10 bg-surface ${isAi ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+            onClick={isAi ? onAvatarClick : undefined}
+          >
             <img 
               src={isAi ? (aiAvatarUrl || '/avatar.png') : (userProfile?.avatar_url || '/avatar.png')} 
               className="w-full h-full object-cover" 

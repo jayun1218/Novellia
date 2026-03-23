@@ -4,17 +4,42 @@ import React, { useState, useEffect, use } from 'react';
 import ChatHeader from '@/components/Chat/ChatHeader';
 import Message from '@/components/Chat/Message';
 import ChatInput from '@/components/Chat/ChatInput';
+import CharacterProfileModal from '@/components/Chat/CharacterProfileModal';
 
 const popularCharacters: Record<string, any> = {
-  'sn1': { name: '서연호', avatarUrl: '/seoyeonho.png', greeting: '도전장을 내밀다니, 제법이네? 내 관심을 끈 대가는 꽤 비쌀 텐데.' },
-  'bk2': { name: '강백현', avatarUrl: '/baekhyun.png', greeting: '어이, 거기. 나랑 눈 마주쳤으면 그냥은 못 가지. 한판 붙을래, 아니면 나랑 놀래?' },
-  'yj3': { name: '윤제이', avatarUrl: '/yunjay.png', greeting: '회의 중에 실례군요. 용건이 30초 내로 설명 가능한 수준이길 바랍니다.' },
-  'ma4': { name: '미야 아츠무', avatarUrl: 'http://127.0.0.1:8000/uploads/atsumu.png', greeting: '(코트 위에 서서 배구공을 굴리며 당신을 빤히 바라본다) "어이, 니. 내 토스 함 쳐볼래? 아무한테나 주는 거 아인디."' },
+  'sn1': { 
+    name: '서연호', 
+    avatarUrl: '/seoyeonho.png', 
+    coverUrl: '/seoyeonho.png',
+    description: '집착이 강하고 능글맞은 위험한 선배. 학생회장이자 학교의 실세입니다.',
+    greeting: '도전장을 내밀다니, 제법이네? 내 관심을 끈 대가는 꽤 비쌀 텐데.' 
+  },
+  'bk2': { 
+    name: '강백현', 
+    avatarUrl: '/baekhyun.png', 
+    coverUrl: '/baekhyun.png',
+    description: '츤데레 반항아. 운동부 출신의 거친 매력을 가진 인물입니다.',
+    greeting: '어이, 거기. 나랑 눈 마주쳤으면 그냥은 못 가지. 한판 붙을래, 아니면 나랑 놀래?' 
+  },
+  'yj3': { 
+    name: '윤제이', 
+    avatarUrl: '/yunjay.png', 
+    description: '냉철한 완벽주의자 상사. 시간을 매우 소중히 여깁니다.',
+    greeting: '회의 중에 실례군요. 용건이 30초 내로 설명 가능한 수준이길 바랍니다.' 
+  },
+  'ma4': { 
+    name: '미야 아츠무', 
+    avatarUrl: 'http://127.0.0.1:8000/uploads/atsumu.png', 
+    coverUrl: 'http://127.0.0.1:8000/uploads/atsumu.png',
+    description: '이나리자키 고교 배구부의 천재 세터. 고교 No.1 세터로 불리며 승부욕이 매우 강합니다.',
+    greeting: '(코트 위에 서서 배구공을 굴리며 당신을 빤히 바라본다) "어이, 니. 내 토스 함 쳐볼래? 아무한테나 주는 거 아인디."' 
+  },
 };
 
 export default function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [character, setCharacter] = useState<any>(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
   const [userProfiles, setUserProfiles] = useState<any[]>([]);
   const [selectedProfileIndex, setSelectedProfileIndex] = useState<number>(0);
@@ -65,7 +90,12 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
               const charRes = await fetch(`http://127.0.0.1:8000/characters/${charIdx}`);
               if (charRes.ok) {
                 const charData = await charRes.json();
-                setCharacter({ name: charData.name, avatarUrl: charData.avatar_url || '/avatar.png' });
+                setCharacter({ 
+                  name: charData.name, 
+                  avatarUrl: charData.avatar_url || '/avatar.png',
+                  coverUrl: charData.cover_url || charData.avatar_url || '/avatar.png',
+                  description: charData.description
+                });
               }
             } else if (popularCharacters[id]) {
               setCharacter(popularCharacters[id]);
@@ -88,6 +118,8 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
               const charData = {
                 name: data.name,
                 avatarUrl: data.avatar_url || '/avatar.png',
+                coverUrl: data.cover_url || data.avatar_url || '/avatar.png',
+                description: data.description,
                 greeting: data.greeting || '안녕하세요, 만나서 반가워요!'
               };
               setCharacter(charData);
@@ -224,6 +256,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         settings={settings}
         onSettingsChange={setSettings}
         onResetChat={handleResetChat}
+        onAvatarClick={() => setIsProfileModalOpen(true)}
       />
       
       <div className="flex-1 overflow-y-auto pb-32 px-4 no-scrollbar">
@@ -238,13 +271,22 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
               userProfile={userProfiles[selectedProfileIndex]}
               aiAvatarUrl={character.avatarUrl}
               aiName={character.name}
-              favorability={favorability}
+              favorability={msg.isAi && index === messages.length - 1 ? favorability : undefined}
+              onAvatarClick={() => setIsProfileModalOpen(true)}
             />
           ))}
         </div>
       </div>
 
       <ChatInput onSend={handleSend} />
+
+      {character && (
+        <CharacterProfileModal 
+          isOpen={isProfileModalOpen} 
+          onClose={() => setIsProfileModalOpen(false)} 
+          character={character} 
+        />
+      )}
     </main>
   );
 }
