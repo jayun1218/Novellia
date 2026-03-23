@@ -7,26 +7,6 @@ import ChatInput from '@/components/Chat/ChatInput';
 import CharacterProfileModal from '@/components/Chat/CharacterProfileModal';
 
 const popularCharacters: Record<string, any> = {
-  'sn1': { 
-    name: '서연호', 
-    avatarUrl: '/seoyeonho.png', 
-    coverUrl: '/seoyeonho.png',
-    description: '집착이 강하고 능글맞은 위험한 선배. 학생회장이자 학교의 실세입니다.',
-    greeting: '도전장을 내밀다니, 제법이네? 내 관심을 끈 대가는 꽤 비쌀 텐데.' 
-  },
-  'bk2': { 
-    name: '강백현', 
-    avatarUrl: '/baekhyun.png', 
-    coverUrl: '/baekhyun.png',
-    description: '츤데레 반항아. 운동부 출신의 거친 매력을 가진 인물입니다.',
-    greeting: '어이, 거기. 나랑 눈 마주쳤으면 그냥은 못 가지. 한판 붙을래, 아니면 나랑 놀래?' 
-  },
-  'yj3': { 
-    name: '윤제이', 
-    avatarUrl: '/yunjay.png', 
-    description: '냉철한 완벽주의자 상사. 시간을 매우 소중히 여깁니다.',
-    greeting: '회의 중에 실례군요. 용건이 30초 내로 설명 가능한 수준이길 바랍니다.' 
-  },
   'ma4': { 
     name: '미야 아츠무', 
     avatarUrl: 'http://127.0.0.1:8000/uploads/atsumu.png', 

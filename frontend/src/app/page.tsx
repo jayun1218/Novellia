@@ -6,30 +6,6 @@ import { Sparkles, UserCheck } from 'lucide-react';
 
 const popularCharacters = [
   {
-    id: "sn1",
-    name: "서연호",
-    description: "도전장을 내민 당신을 흥미롭게 지켜보는 위험한 선배",
-    tags: ["집착", "연상", "능글"],
-    chatCount: "8.6만",
-    avatarUrl: "/seoyeonho.png"
-  },
-  {
-    id: "bk2",
-    name: "강백현",
-    description: "반항적인 눈빛 속에 숨겨진 서투른 진심",
-    tags: ["반항아", "츤데레", "일진"],
-    chatCount: "12.3만",
-    avatarUrl: "/baekhyun.png"
-  },
-  {
-    id: "yj3",
-    name: "윤제이",
-    description: "완벽한 이목구비 뒤에 감춰진 시린 얼음 왕자",
-    tags: ["냉혈남", "재벌3세", "엘리트"],
-    chatCount: "5.4만",
-    avatarUrl: "/yunjay.png"
-  },
-  {
     id: "ma4",
     name: "미야 아츠무",
     description: "코트 위의 절대적인 지배자, 당신의 심장까지 세팅하는 천재 세터",

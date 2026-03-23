@@ -1,8 +1,19 @@
+'use client'
+
 import React from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Home, PlusCircle, Compass, User, Sparkles } from 'lucide-react';
 
 const Sidebar = () => {
+  const pathname = usePathname();
+
+  const navItems = [
+    { href: '/', icon: Home, label: '홈' },
+    { href: '/feed', icon: Compass, label: '피드' },
+    { href: '/profiles', icon: User, label: '프로필' },
+  ];
+
   return (
     <aside className="hidden md:flex flex-col w-64 h-screen glass fixed left-0 top-0 z-50 p-6 border-r border-white/5">
       <Link href="/" className="flex items-center gap-2 mb-10 px-2 hover:opacity-80 transition-opacity cursor-pointer">
@@ -13,15 +24,22 @@ const Sidebar = () => {
       </Link>
 
       <nav className="flex flex-col gap-2 flex-1">
-        <Link href="/" className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/10 text-primary font-medium transition-all">
-          <Home className="w-5 h-5" /> 홈
-        </Link>
-        <Link href="/feed" className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
-          <Compass className="w-5 h-5" /> 피드
-        </Link>
-        <Link href="/profiles" className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
-          <User className="w-5 h-5" /> 프로필
-        </Link>
+        {navItems.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <Link 
+              key={item.href}
+              href={item.href} 
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${
+                isActive 
+                  ? 'bg-primary/10 text-primary' 
+                  : 'text-gray-400 hover:bg-white/5 hover:text-white'
+              }`}
+            >
+              <item.icon className="w-5 h-5" /> {item.label}
+            </Link>
+          );
+        })}
       </nav>
 
       <div className="mt-auto">
