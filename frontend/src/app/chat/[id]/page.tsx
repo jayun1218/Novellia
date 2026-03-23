@@ -148,53 +148,46 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     }
   }, [messages, id, favorability]);
 
-  const handleSend = async (text: string) => {
-    const newMessage = {
-      id: Date.now(),
-      content: text,
-      isAi: false,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    const updatedMessages = [...messages, newMessage];
-    setMessages(updatedMessages);
-    
-    try {
-      const index = id.startsWith('my-') ? parseInt(id.replace('my-', '')) : -1;
-      const charId = id.startsWith('my-') ? null : id;
-      
-      const history = updatedMessages.slice(-10).map(m => ({
-        role: m.isAi ? 'assistant' : 'user',
-        content: m.content
-      }));
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
-      const response = await fetch('http://127.0.0.1:8000/chat', {
+  const handleSend = async (text: string) => {
+    // ... 기존 코드 유지
+  }
+
+  const handleGenerateScene = async (prompt: string) => {
+    if (isGeneratingImage) return;
+    
+    setIsGeneratingImage(true);
+    try {
+      // Get some context from last messages if prompt is empty
+      const scenePrompt = prompt || messages.slice(-2).map(m => m.content).join(' ');
+      
+      const response = await fetch('http://127.0.0.1:8000/generate-scene-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          message: text, 
-          index: index, 
-          char_id: charId,
-          chat_history: history,
-          user_profile_index: selectedProfileIndex
-        }),
+        body: JSON.stringify({ prompt: scenePrompt, char_id: id }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        if (data.favorability !== undefined) {
-          setFavorability(data.favorability);
+        if (data.url) {
+          const imageMsg = {
+            id: Date.now(),
+            content: `*${character.name}와(과) 함께하는 이 순간을 기록했습니다.*`,
+            isAi: true,
+            imageUrl: data.url,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          };
+          setMessages(prev => [...prev, imageMsg]);
+        } else {
+          alert('이미지 생성에 실패했습니다.');
         }
-        const aiResponse = {
-          id: Date.now() + 1,
-          content: data.reply || "*묵묵부답입니다.*",
-          isAi: true,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-        setMessages(prev => [...prev, aiResponse]);
       }
     } catch (error) {
-      console.error('Chat error:', error);
-      alert('대화 중 오류가 발생했습니다.');
+      console.error('Scene generation error:', error);
+      alert('이미지 생성 중 오류가 발생했습니다.');
+    } finally {
+      setIsGeneratingImage(false);
     }
   };
 
@@ -246,6 +239,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
               key={msg.id || index} 
               content={msg.content} 
               isAi={msg.isAi} 
+              imageUrl={msg.imageUrl}
               timestamp={msg.timestamp} 
               settings={settings}
               userProfile={userProfiles[selectedProfileIndex]}
@@ -258,7 +252,11 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         </div>
       </div>
 
-      <ChatInput onSend={handleSend} />
+      <ChatInput 
+        onSend={handleSend} 
+        onGenerateScene={handleGenerateScene}
+        isGeneratingImage={isGeneratingImage}
+      />
 
       {character && (
         <CharacterProfileModal 

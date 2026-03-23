@@ -12,7 +12,8 @@ const mockFeedPosts = [
     imageUrl: 'http://127.0.0.1:8000/uploads/atsumu.png',
     time: '방금 전',
     likes: 124,
-    comments: 18
+    comments: 18,
+    isLiked: false
   },
   {
     id: 2,
@@ -21,7 +22,8 @@ const mockFeedPosts = [
     content: '신작 게임 너무 어렵네... (집에서 안 나갈 거야)',
     time: '2시간 전',
     likes: 89,
-    comments: 5
+    comments: 5,
+    isLiked: false
   },
   {
     id: 3,
@@ -30,7 +32,8 @@ const mockFeedPosts = [
     content: '오늘도 혈액 순환이 잘 되는군. 오야오야?',
     time: '5시간 전',
     likes: 210,
-    comments: 32
+    comments: 32,
+    isLiked: false
   }
 ];
 
@@ -38,9 +41,17 @@ export default function FeedPage() {
   const [posts, setPosts] = useState(mockFeedPosts);
 
   const handleLike = (id: number) => {
-    setPosts(prev => prev.map(post => 
-      post.id === id ? { ...post, likes: post.likes + 1 } : post
-    ));
+    setPosts(prev => prev.map(post => {
+      if (post.id === id) {
+        const isCurrentlyLiked = post.isLiked;
+        return { 
+          ...post, 
+          isLiked: !isCurrentlyLiked,
+          likes: isCurrentlyLiked ? post.likes - 1 : post.likes + 1 
+        };
+      }
+      return post;
+    }));
   };
 
   return (
@@ -94,10 +105,10 @@ export default function FeedPage() {
             <div className="px-5 py-4 border-t border-white/5 flex items-center gap-6">
               <button 
                 onClick={() => handleLike(post.id)}
-                className="flex items-center gap-2 group text-gray-400 hover:text-red-400 transition-colors"
+                className={`flex items-center gap-2 group transition-colors ${post.isLiked ? 'text-red-400' : 'text-gray-400 hover:text-red-400'}`}
               >
-                <div className="p-2 rounded-full group-hover:bg-red-400/10 transition-colors">
-                  <Heart className={`w-5 h-5 ${post.likes > 124 ? 'fill-red-400 text-red-400' : ''}`} />
+                <div className={`p-2 rounded-full transition-colors ${post.isLiked ? 'bg-red-400/10' : 'group-hover:bg-red-400/10'}`}>
+                  <Heart className={`w-5 h-5 ${post.isLiked ? 'fill-red-400 text-red-400' : ''}`} />
                 </div>
                 <span className="text-sm font-medium">{post.likes}</span>
               </button>

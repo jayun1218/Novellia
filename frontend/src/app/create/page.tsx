@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Save, Sparkles, Image as ImageIcon, BookOpen, MessageSquare, Plus, RefreshCw, X, Settings, Zap, ChevronDown, ChevronUp, Upload } from 'lucide-react';
+import { Save, Sparkles, Image as ImageIcon, BookOpen, MessageSquare, Plus, RefreshCw, X, Settings, Zap, ChevronDown, ChevronUp, Upload, Compass } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const CreateCharacterPage = () => {
@@ -31,6 +31,7 @@ const CreateCharacterPage = () => {
     },
     lorebook: [] as { name: string; keywords: string[]; content: string }[],
     avatar_url: '',
+    is_public: true,
   });
 
   const [newLore, setNewLore] = useState({ name: '', keywords: '', content: '' });
@@ -120,6 +121,7 @@ const CreateCharacterPage = () => {
           status_config: formData.status_config,
           lorebook: formData.lorebook,
           avatar_url: formData.avatar_url,
+          is_public: formData.is_public,
         }),
       });
       
@@ -296,6 +298,23 @@ const CreateCharacterPage = () => {
       {/* Basic Tab */}
       {activeTab === 'basic' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {/* Public/Private Toggle */}
+          <div className="p-6 bg-surface border border-white/5 rounded-3xl flex items-center justify-between group hover:border-primary/30 transition-all">
+            <div className="flex items-center gap-4">
+              <div className={`p-3 rounded-2xl transition-all ${formData.is_public ? 'bg-primary/20 text-primary' : 'bg-white/5 text-gray-500'}`}><Compass className="w-6 h-6" /></div>
+              <div>
+                <h4 className="font-bold text-white mb-1">공개 캐릭터 설정</h4>
+                <p className="text-xs text-gray-500">활성화하면 다른 사용자들이 이 캐릭터를 검색하고 대화할 수 있습니다.</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setFormData(prev => ({ ...prev, is_public: !prev.is_public }))}
+              className={`w-14 h-8 rounded-full transition-all relative ${formData.is_public ? 'bg-primary' : 'bg-white/10'}`}
+            >
+              <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${formData.is_public ? 'left-7' : 'left-1'}`} />
+            </button>
+          </div>
+
           {/* Namuwiki Auto-fill */}
           <div className="p-6 bg-gradient-to-r from-primary/10 to-transparent border border-primary/20 rounded-3xl space-y-4">
             <div className="flex items-center gap-2 mb-2">

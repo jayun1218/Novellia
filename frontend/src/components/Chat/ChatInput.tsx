@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Send, Plus, Smile } from 'lucide-react';
+import { Send, Plus, Smile, Wand2, RefreshCw } from 'lucide-react';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
+  onGenerateScene: (prompt: string) => void;
+  isGeneratingImage?: boolean;
 }
 
-const ChatInput: React.FC<ChatInputProps> = ({ onSend }) => {
+const ChatInput: React.FC<ChatInputProps> = ({ onSend, onGenerateScene, isGeneratingImage }) => {
   const [text, setText] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -19,8 +21,14 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend }) => {
   return (
     <div className="fixed bottom-0 w-full glass px-4 py-4 pb-8">
       <form onSubmit={handleSubmit} className="flex items-center gap-2 max-w-4xl mx-auto">
-        <button type="button" className="p-2 text-gray-400 hover:text-white transition-colors">
-          <Plus className="w-6 h-6" />
+        <button 
+          type="button" 
+          onClick={() => onGenerateScene(text)}
+          disabled={isGeneratingImage}
+          className={`p-2 rounded-xl transition-all ${isGeneratingImage ? 'bg-primary/20 text-primary' : 'text-gray-400 hover:text-primary hover:bg-primary/10'}`}
+          title="현재 장면 이미지 생성"
+        >
+          {isGeneratingImage ? <RefreshCw className="w-6 h-6 animate-spin" /> : <Wand2 className="w-6 h-6" />}
         </button>
         <div className="relative flex-1">
           <input

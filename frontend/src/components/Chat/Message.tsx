@@ -16,10 +16,11 @@ interface MessageProps {
   aiAvatarUrl?: string;
   aiName?: string;
   favorability?: number;
+  imageUrl?: string;
   onAvatarClick?: () => void;
 }
 
-const Message: React.FC<MessageProps> = ({ content, isAi, timestamp, settings, userProfile, aiAvatarUrl, aiName, favorability, onAvatarClick }) => {
+const Message: React.FC<MessageProps> = ({ content, isAi, timestamp, settings, userProfile, aiAvatarUrl, aiName, favorability, imageUrl, onAvatarClick }) => {
   const [isStatusOpen, setIsStatusOpen] = useState(false);
   const theme = settings?.theme || 'basic';
   const showProfile = settings?.showProfile ?? true;
@@ -99,12 +100,19 @@ const Message: React.FC<MessageProps> = ({ content, isAi, timestamp, settings, u
           </span>
         )}
         
-        <div className={`px-5 py-3 rounded-2xl shadow-sm ${getBubbleStyle()} ${
+        <div className={`rounded-2xl shadow-sm overflow-hidden ${getBubbleStyle()} ${
           isAi ? 'rounded-tl-none' : 'rounded-tr-none'
         }`}>
-          <p className="text-[15px] leading-relaxed whitespace-pre-wrap font-medium">
-            {formatDialogue(dialogue)}
-          </p>
+          {imageUrl && (
+            <div className="w-full aspect-video overflow-hidden border-b border-white/5">
+              <img src={imageUrl} alt="Scene" className="w-full h-full object-cover" />
+            </div>
+          )}
+          <div className="px-5 py-3">
+            <p className="text-[15px] leading-relaxed whitespace-pre-wrap font-medium">
+              {formatDialogue(dialogue)}
+            </p>
+          </div>
 
           {isAi && statusBlocks.length > 0 && (
             <div className={`mt-4 pt-3 border-t ${theme === 'basic' ? 'border-white/5' : 'border-black/5'}`}>

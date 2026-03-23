@@ -59,6 +59,8 @@ class Character(BaseModel):
     tags: List[str] = []
     avatar_url: Optional[str] = "/avatar.png"
     cover_url: Optional[str] = None
+    is_public: Optional[bool] = True # 공개 여부 추가
+    cover_url: Optional[str] = None
 
 class UserProfile(BaseModel):
     name: str
@@ -107,12 +109,51 @@ class ImageRequest(BaseModel):
 class NamuRequest(BaseModel):
     url: str
 
+class SceneImageRequest(BaseModel):
+    prompt: str
+    char_id: Optional[str] = None
+
+@app.post("/generate-scene-image")
+async def generate_scene_image(request: SceneImageRequest):
+    try:
+        # Enhancing the prompt for better scene artistic quality
+        full_prompt = f"High-quality anime style digital painting, {request.prompt}. cinematic lighting, detailed background, immersive atmosphere, masterpiece."
+        
+        response = client.images.generate(
+            model="dall-e-3",
+            prompt=full_prompt,
+            size="1024x1024",
+            quality="standard",
+            n=1,
+        )
+        image_url = response.data[0].url
+        return {"url": image_url}
+    except Exception as e:
+        print(f"[ERROR] Image generation failed: {e}")
+        return {"status": "error", "message": str(e)}
+
 class ChatRequest(BaseModel):
     message: str
     index: int  # -1 for popular characters, or index in characters_db
     char_id: Optional[str] = None # For popular characters
     chat_history: List[dict] = []
     user_profile_index: Optional[int] = None
+
+@app.get("/characters/search")
+async def search_characters(q: str = ""):
+    results = []
+    # 검색 로직 (내 캐릭터 + 인기 캐릭터 중 공개된 것)
+    all_chars = list(characters_db.values())
+    for char in all_chars:
+        if char.get("is_public", True) and (q.lower() in char["name"].lower() or any(q.lower() in t.lower() for t in char.get("tags", []))):
+            results.append(char)
+    
+    # 인기 캐릭터도 포함
+    for cid, cdata in popular_characters_data.items():
+        if q.lower() in cdata["name"].lower() or any(q.lower() in t.get("name", "").lower() if isinstance(t, dict) else q.lower() in t.lower() for t in cdata.get("tags", [])):
+            results.append({"id": cid, **cdata})
+            
+    return results
 
 # 인기 캐릭터 데이터 (백엔드에서도 인지 필요)
 popular_characters_data = {
@@ -309,6 +350,11 @@ async def chat_with_character(request: ChatRequest):
     5. No repetitive or generic AI phrases.
     """
 
+    # Memory Summary Injection
+    memory_summary = current_chat.get("memory_summary", "")
+    if memory_summary:
+        system_prompt += f"\n\n### Shared Memories & History (Long-term Memory)\n{memory_summary}"
+    
     # Chat with history
     messages = [{"role": "system", "content": system_prompt}]
     for msg in request.chat_history:
@@ -316,17 +362,15 @@ async def chat_with_character(request: ChatRequest):
     messages.append({"role": "user", "content": request.message})
 
     print(f"\n[DEBUG] Sending request to OpenAI for char_key: {char_key}")
-    print(f"[DEBUG] User Message: {request.message[:50]}...")
     
     try:
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=messages,
             max_tokens=600,
-            timeout=30.0 # Timeouts are important
+            timeout=30.0
         )
         reply = response.choices[0].message.content
-        print(f"[DEBUG] Received response from OpenAI: {reply[:50]}...")
         
         # Parse favorability change
         import re
@@ -334,14 +378,33 @@ async def chat_with_character(request: ChatRequest):
         fav_change = 0
         if fav_match:
             fav_change = int(fav_match.group(1))
-            print(f"[DEBUG] Parsed favorability change: {fav_change}")
         
-        # Update favorability in memory
+        # Update favorability and Check for Summarization
         new_fav = max(0, min(100, fav_score + fav_change))
-        chats_db[char_key]["favorability"] = new_fav
-        save_db(CHATS_FILE, chats_db)
-        print(f"[DEBUG] Success. New favorability: {new_fav}")
+        current_chat["favorability"] = new_fav
+        
+        # Trigger summarization if history is long (e.g., > 20 messages)
+        # Using a simple check: if we have more than 20 messages in request.chat_history
+        if len(request.chat_history) >= 20 and not current_chat.get("is_summarizing"):
+            print(f"[DEBUG] Triggering long-term memory summarization...")
+            current_chat["is_summarizing"] = True # Simple flag to avoid concurrent calls
+            try:
+                # Ask GPT to summarize the relationship and history
+                summary_prompt = "Summarize the key events, shared memories, and the current relationship milestones between the character and the user based on the conversation history. Focus on specific details that define their bond. Keep it under 200 words. Language: Korean."
+                summary_messages = messages + [{"role": "user", "content": summary_prompt}]
+                summary_res = client.chat.completions.create(
+                    model="gpt-4o-mini", # Use cheaper model for summary
+                    messages=summary_messages,
+                    max_tokens=300
+                )
+                current_chat["memory_summary"] = summary_res.choices[0].message.content
+                print(f"[DEBUG] Memory Summary Updated: {current_chat['memory_summary'][:50]}...")
+            except Exception as se:
+                print(f"[ERROR] Summarization failed: {se}")
+            finally:
+                current_chat["is_summarizing"] = False
 
+        save_db(CHATS_FILE, chats_db)
         return {"reply": reply, "favorability": new_fav}
     except Exception as e:
         print(f"[ERROR] Chat error: {e}")
