@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, MessageCircle, Phone, Star, Share2, Lock, Unlock, Gift, Heart } from 'lucide-react';
+import { X, MessageCircle, Phone, Star, Lock, Unlock, Gift, Heart, User } from 'lucide-react';
 
 interface Unlockable {
   threshold: number;
@@ -16,11 +16,13 @@ interface CharacterProfileModalProps {
     coverUrl?: string;
     description?: string;
     unlockables?: Unlockable[];
+    recommended_personas?: string[];
   };
   favorability?: number;
+  onApplyPersona?: (persona: string) => void;
 }
 
-const CharacterProfileModal: React.FC<CharacterProfileModalProps> = ({ isOpen, onClose, character, favorability = 0 }) => {
+const CharacterProfileModal: React.FC<CharacterProfileModalProps> = ({ isOpen, onClose, character, favorability = 0, onApplyPersona }) => {
   if (!isOpen) return null;
 
   return (
@@ -32,7 +34,7 @@ const CharacterProfileModal: React.FC<CharacterProfileModalProps> = ({ isOpen, o
       />
       
       {/* Modal Content */}
-      <div className="relative w-full max-w-[420px] h-full sm:h-[800px] bg-[#1a1a1b] sm:rounded-[40px] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+      <div className="relative w-full max-w-[420px] h-full sm:h-[850px] bg-[#1a1a1b] sm:rounded-[40px] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
         {/* Cover Image */}
         <div className="absolute top-0 w-full h-[300px] overflow-hidden">
           <img 
@@ -71,7 +73,7 @@ const CharacterProfileModal: React.FC<CharacterProfileModalProps> = ({ isOpen, o
           <h2 className="text-2xl font-black text-white mb-1 tracking-tight">{character.name}</h2>
           
           {/* Affection Gauge */}
-          <div className="flex flex-col items-center gap-1.5 mb-6 w-full max-w-[220px]">
+          <div className="flex flex-col items-center gap-1.5 mb-8 w-full max-w-[220px]">
             <div className="flex items-center gap-1.5">
               <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
               <span className="text-[12px] font-black text-rose-500 uppercase">Affection {favorability}%</span>
@@ -84,15 +86,31 @@ const CharacterProfileModal: React.FC<CharacterProfileModalProps> = ({ isOpen, o
             </div>
           </div>
 
-          <p className="text-xs text-gray-400 font-medium leading-relaxed max-w-[280px] mb-8 bg-white/5 p-3 rounded-2xl">
-            {character.description}
-          </p>
+          {/* Recommended Personas (Selection Section) */}
+          <div className="w-full space-y-3 mb-10 text-left">
+            <div className="flex items-center gap-2 mb-3">
+              <User className="w-4 h-4 text-sky-400" />
+              <h3 className="text-[11px] font-black text-sky-400 uppercase tracking-widest">Recommended Roles</h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {character.recommended_personas?.map((persona, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => onApplyPersona?.(persona)}
+                  className="px-4 py-2 bg-white/[0.03] hover:bg-sky-500/10 border border-white/5 hover:border-sky-500/30 rounded-full text-[13px] font-bold text-gray-300 hover:text-sky-400 transition-all active:scale-95"
+                >
+                  {persona}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-gray-500 font-medium px-1">원하는 역할을 클릭하면 즉시 설정됩니다.</p>
+          </div>
 
           {/* Secret Content Section */}
-          <div className="w-full space-y-3 pt-4 border-t border-white/5">
-            <div className="flex items-center gap-2 mb-2 px-1">
+          <div className="w-full space-y-3 pt-6 border-t border-white/5">
+            <div className="flex items-center gap-2 mb-2 px-1 text-left">
               <Gift className="w-4 h-4 text-primary" />
-              <h3 className="text-xs font-black text-white uppercase tracking-widest">Secret Moments</h3>
+              <h3 className="text-[11px] font-black text-white uppercase tracking-widest text-left">Secret Moments</h3>
             </div>
             
             {character.unlockables?.map((item, idx) => {
@@ -106,8 +124,8 @@ const CharacterProfileModal: React.FC<CharacterProfileModalProps> = ({ isOpen, o
                       : 'bg-white/[0.02] border-white/5 scale-[0.98] opacity-60'
                   }`}
                 >
-                  <div className="flex justify-between items-center mb-1">
-                    <span className={`text-[11px] font-black uppercase tracking-tighter ${isUnlocked ? 'text-primary' : 'text-gray-500'}`}>
+                  <div className="flex justify-between items-center mb-1 text-left">
+                    <span className={`text-[10px] font-black uppercase tracking-tighter ${isUnlocked ? 'text-primary' : 'text-gray-500'}`}>
                       {isUnlocked ? item.title : `Unlocked at ${item.threshold}%`}
                     </span>
                     {isUnlocked ? <Unlock className="w-3.5 h-3.5 text-primary" /> : <Lock className="w-3.5 h-3.5 text-gray-600" />}
@@ -124,7 +142,7 @@ const CharacterProfileModal: React.FC<CharacterProfileModalProps> = ({ isOpen, o
         </div>
 
         {/* Kakao-style Bottom Actions */}
-        <div className="absolute bottom-0 w-full bg-gradient-to-t from-[#1a1a1b] via-[#1a1a1b] to-transparent pt-10 pb-12 flex items-center gap-14 justify-center z-20">
+        <div className="absolute bottom-0 w-full bg-gradient-to-t from-[#1a1a1b] via-[#1a1a1b] 80% to-transparent pt-10 pb-12 flex items-center gap-14 justify-center z-20">
           <button onClick={onClose} className="flex flex-col items-center gap-3 group">
             <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-primary/20 transition-all shadow-lg border border-white/10">
               <MessageCircle className="w-5 h-5 text-white group-hover:text-primary transition-colors" />

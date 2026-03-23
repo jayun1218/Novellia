@@ -426,6 +426,37 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     fetchScenarios();
   }, []);
 
+  const handleApplyPersona = async (persona: string) => {
+    try {
+      const res = await fetch('http://127.0.0.1:8000/user-profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: userProfiles[selectedProfileIndex]?.name || '나',
+          description: persona,
+          avatar_url: userProfiles[selectedProfileIndex]?.avatar_url || 'http://localhost:8000/uploads/user_default.png'
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const updatedProfiles = [...userProfiles, data];
+        setUserProfiles(updatedProfiles);
+        setSelectedProfileIndex(updatedProfiles.length - 1);
+        
+        setMessages(prev => [...prev, {
+          id: Date.now(),
+          content: `*페르소나 '${persona}'가 적용되었습니다.*`,
+          isAi: true,
+          name: 'System',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }]);
+      }
+    } catch (err) {
+      console.error('Apply persona error:', err);
+    }
+  };
+
   const handleOpenTimeline = async () => {
     try {
       const res = await fetch(`http://127.0.0.1:8000/chat/${id}/timeline`);
@@ -484,6 +515,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           onClose={() => setIsProfileModalOpen(false)}
           character={selectedCharacter}
           favorability={favorability}
+          onApplyPersona={handleApplyPersona}
         />
       )}
 

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Camera, Check, X, Save, User as UserIcon, Trash } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Trash2, Camera, Check, X, Save, User as UserIcon, Trash, Loader2 } from 'lucide-react';
 
 interface UserProfile {
   name: string;
@@ -15,7 +15,9 @@ interface UserProfile {
 export default function ProfilesPage() {
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [isEditing, setIsEditing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [currentIndex, setCurrentIndex] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<UserProfile>({
     name: '',
     short_bio: '',
@@ -85,6 +87,31 @@ export default function ProfilesPage() {
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formDataUpload = new FormData();
+    formDataUpload.append('file', file);
+
+    try {
+      const response = await fetch('http://127.0.0.1:8000/upload-image', {
+        method: 'POST',
+        body: formDataUpload,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setFormData({ ...formData, avatar_url: data.url });
+      }
+    } catch (error) {
+      console.error('Failed to upload image:', error);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background pb-32 pt-10 px-6 md:px-12 max-w-4xl mx-auto">
       {!isEditing ? (
@@ -150,13 +177,32 @@ export default function ProfilesPage() {
 
           <div className="space-y-12">
             <div className="flex flex-col items-center">
-              <div className="relative group cursor-pointer">
-                <div className="w-40 h-40 rounded-[48px] bg-surface border-2 border-white/5 overflow-hidden shadow-2xl group-hover:border-primary/50 transition-all duration-500">
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*"
+                onChange={handleImageUpload}
+              />
+              <div 
+                className="relative group cursor-pointer"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <div className={`w-40 h-40 rounded-[48px] bg-surface border-2 overflow-hidden shadow-2xl transition-all duration-500 ${isUploading ? 'opacity-50' : 'group-hover:border-primary/50'}`}>
                   <img src={formData.avatar_url} alt="Profile" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-sm">
-                    <Camera className="w-8 h-8 text-white mb-1" />
+                    {isUploading ? (
+                      <Loader2 className="w-8 h-8 text-white animate-spin" />
+                    ) : (
+                      <Camera className="w-8 h-8 text-white mb-1" />
+                    )}
                   </div>
                 </div>
+                {!isUploading && (
+                  <div className="absolute -bottom-2 -right-2 w-12 h-12 bg-primary rounded-2xl flex items-center justify-center shadow-xl border-4 border-[#1a1a1b] group-hover:scale-110 transition-transform">
+                    <Camera className="w-5 h-5 text-white" />
+                  </div>
+                )}
               </div>
             </div>
 
