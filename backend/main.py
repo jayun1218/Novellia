@@ -60,6 +60,47 @@ class Character(BaseModel):
     avatar_url: Optional[str] = "/avatar.png"
     cover_url: Optional[str] = None
 
+class UserProfile(BaseModel):
+    name: str
+    short_bio: Optional[str] = ""
+    description: Optional[str] = ""
+    avatar_url: Optional[str] = "/avatar.png"
+    use_playing_name: bool = True
+
+# 데이터 영구 저장을 위한 설정
+CHARACTERS_FILE = "characters.json"
+PROFILES_FILE = "profiles.json"
+CHATS_FILE = "chats.json"
+
+def load_db(file_path, default_data):
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading {file_path}: {e}")
+    return default_data
+
+def save_db(file_path, data):
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Error saving {file_path}: {e}")
+
+# 초기 데이터 로드
+characters_db = load_db(CHARACTERS_FILE, [])
+user_profiles_db = load_db(PROFILES_FILE, [
+    {
+        "name": "나", 
+        "short_bio": "기본 프로필", 
+        "description": "평범한 학생입니다.", 
+        "avatar_url": "/avatar.png",
+        "use_playing_name": True
+    }
+])
+chats_db = load_db(CHATS_FILE, {})
+
 class ImageRequest(BaseModel):
     prompt: str
 
@@ -70,9 +111,8 @@ class ChatRequest(BaseModel):
     message: str
     index: int  # -1 for popular characters, or index in characters_db
     char_id: Optional[str] = None # For popular characters
-
-# 임시 메모리 저장소
-characters_db = []
+    chat_history: List[dict] = []
+    user_profile_index: Optional[int] = None
 
 # 인기 캐릭터 데이터 (백엔드에서도 인지 필요)
 popular_characters_data = {
@@ -206,28 +246,45 @@ async def chat_with_character(request: ChatRequest):
     {speech_style_guidance}
     {narrative_directives}
     {lore_context}
-    {status_window_instruction}
+    """
+
+    # User Profile Injection
+    if request.user_profile_index is not None and 0 <= request.user_profile_index < len(user_profiles_db):
+        u_profile = user_profiles_db[request.user_profile_index]
+        user_info_block = f"""
+        ### Information of User (You are talking to this person)
+        - Name: {u_profile.name}
+        - Bio: {u_profile.short_bio}
+        - Description: {u_profile.description}
+        """
+        system_prompt += user_info_block
     
+    system_prompt += status_window_instruction
+    
+    system_prompt += """
     Rules:
     1. Respond in Korean.
     2. Maintain the character's unique tone and personality.
-    3. Use a mix of dialogue and descriptive actions (e.g., *Sighs and looks away*).
-    4. Keep the response concise but immersive.
+    3. Use a mix of dialogue and descriptive actions.
+    4. Keep the response immersive and concise.
     5. No repetitive or generic AI phrases.
-    6. Strictly follow the Dialogue Style / Manner of Speech and Narrative Directives provided.
     """
+
+    # Chat with history
+    messages = [{"role": "system", "content": system_prompt}]
+    for msg in request.chat_history:
+        messages.append(msg)
+    messages.append({"role": "user", "content": request.message})
 
     try:
         response = client.chat.completions.create(
             model="gpt-4o",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": request.message}
-            ],
-            max_tokens=500,
+            messages=messages,
+            max_tokens=600,
         )
         return {"reply": response.choices[0].message.content}
     except Exception as e:
+        print(f"Chat error: {e}")
         return {"status": "error", "message": str(e)}
 
 @app.get("/")
@@ -237,6 +294,7 @@ async def root():
 @app.post("/characters")
 async def create_character(character: Character):
     characters_db.append(character.dict())
+    save_db(CHARACTERS_FILE, characters_db)
     return {"status": "success", "data": character}
 
 @app.get("/characters")
@@ -326,3 +384,31 @@ async def scrape_namuwiki(request: NamuRequest):
         except Exception as e:
             print(f"Scraping error: {e}")
             return {"error": f"데이터 추출 중 오류가 발생했습니다: {str(e)}"}, 500
+
+@app.get("/user-profiles")
+async def get_user_profiles():
+    return user_profiles_db
+
+@app.post("/user-profiles")
+async def create_user_profile(profile: UserProfile):
+    user_profiles_db.append(profile.dict())
+    save_db(PROFILES_FILE, user_profiles_db)
+    return {"message": "User profile created", "index": len(user_profiles_db) - 1}
+
+@app.delete("/user-profiles/{index}")
+async def delete_user_profile(index: int):
+    if 0 <= index < len(user_profiles_db):
+        user_profiles_db.pop(index)
+        save_db(PROFILES_FILE, user_profiles_db)
+        return {"message": "User profile deleted"}
+    return {"error": "Profile not found"}, 404
+
+@app.get("/chats/{char_id}")
+async def get_chat_history(char_id: str):
+    return chats_db.get(char_id, [])
+
+@app.post("/chats/{char_id}")
+async def save_chat_history(char_id: str, history: List[dict]):
+    chats_db[char_id] = history
+    save_db(CHATS_FILE, chats_db)
+    return {"message": "Chat history saved"}

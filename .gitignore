@@ -51,3 +51,6 @@ MANIFEST
 .DS_Store
 Thumbs.db
 CharaChat_프로젝트계획서.docx
+
+# Databases
+backend/*.json

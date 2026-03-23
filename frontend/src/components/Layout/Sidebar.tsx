@@ -19,7 +19,7 @@ const Sidebar = () => {
         <Link href="/feed" className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
           <Compass className="w-5 h-5" /> 피드
         </Link>
-        <Link href="/profile" className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
+        <Link href="/profiles" className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:bg-white/5 hover:text-white transition-all">
           <User className="w-5 h-5" /> 프로필
         </Link>
       </nav>

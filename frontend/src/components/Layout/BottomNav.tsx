@@ -17,7 +17,7 @@ const BottomNav = () => {
         <PlusCircle className="w-6 h-6" />
         <span className="text-[10px] font-medium">생성</span>
       </Link>
-      <Link href="/profile" className="flex flex-col items-center gap-1 text-gray-500 hover:text-white transition-colors">
+      <Link href="/profiles" className="flex flex-col items-center gap-1 text-gray-500 hover:text-white transition-colors">
         <User className="w-6 h-6" />
         <span className="text-[10px] font-medium">마이</span>
       </Link>
