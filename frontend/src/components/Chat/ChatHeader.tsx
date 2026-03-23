@@ -5,6 +5,7 @@ import Link from 'next/link';
 interface ChatSettings {
   theme: string;
   showProfile: boolean;
+  showStatus: boolean;
   autoBg: boolean;
   haptic: boolean;
 }
@@ -218,10 +219,31 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
             {showSettings && (
               <div className="absolute top-full right-0 mt-3 w-64 glass-card border border-white/10 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200 p-2 z-[60]">
                 <div className="space-y-4 p-2">
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-1">채팅창 테마</span>
+                    <div className="flex gap-2 px-1">
+                      {themes.map((t) => (
+                        <button
+                          key={t.id}
+                          onClick={() => onSettingsChange({ ...settings, theme: t.id })}
+                          className={`flex-1 py-2 px-1 rounded-xl border transition-all text-[11px] font-bold ${
+                            settings.theme === t.id 
+                              ? 'border-primary bg-primary/10 text-primary shadow-[0_0_10px_rgba(var(--primary-rgb),0.2)]' 
+                              : 'border-white/5 bg-white/5 text-gray-500 hover:border-white/10'
+                          }`}
+                        >
+                          <div className={`w-3 h-3 rounded-full ${t.color} mx-auto mb-1`} />
+                          {t.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="space-y-1">
                     {[
                       { id: 'autoBg', name: '배경 이미지 자동생성', icon: ImageIcon },
                       { id: 'showProfile', name: '대화 프로필 표시', icon: User },
+                      { id: 'showStatus', name: '캐릭터 상태창 표시', icon: Zap },
                       { id: 'haptic', name: '답변 완료 햅틱', icon: Zap },
                     ].map((item) => (
                       <div key={item.id} className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 transition-colors">

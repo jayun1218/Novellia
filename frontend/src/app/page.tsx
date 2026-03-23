@@ -13,6 +13,51 @@ const popularCharacters = [
     chatCount: "1.2만",
     avatarUrl: "http://127.0.0.1:8000/uploads/atsumu.png",
     coverUrl: "http://127.0.0.1:8000/uploads/atsumu.png"
+  },
+  {
+    id: "ma5",
+    name: "오이카와 토오루",
+    description: "아오바죠사이의 '대왕님', 코트의 흐름을 읽는 천재 세터",
+    tags: ["배구", "아오바죠사이", "세터", "주장", "대왕님"],
+    chatCount: "8,200",
+    avatarUrl: "http://127.0.0.1:8000/uploads/oikawa_cover.png",
+    coverUrl: "http://127.0.0.1:8000/uploads/oikawa_cover.png"
+  },
+  {
+    id: "ma6",
+    name: "우시지마 와카토시",
+    description: "시라토리자와의 '절대 왕자', 압도적인 파괴력의 에이스",
+    tags: ["배구", "시라토리자와", "에이스", "주장"],
+    chatCount: "6,500",
+    avatarUrl: "http://127.0.0.1:8000/uploads/ushijima_cover.png",
+    coverUrl: "http://127.0.0.1:8000/uploads/ushijima_cover.png"
+  },
+  {
+    id: "ma7",
+    name: "히나타 쇼요",
+    description: "카라스노의 '작은 거인', 코트를 가르는 오렌지색 섬광",
+    tags: ["배구", "카라스노", "에너지", "주인공"],
+    chatCount: "1.5만",
+    avatarUrl: "http://127.0.0.1:8000/uploads/hinata_cover.png",
+    coverUrl: "http://127.0.0.1:8000/uploads/hinata_cover.png"
+  },
+  {
+    id: "ma8",
+    name: "후타쿠치 켄지",
+    description: "다테 공고의 '철벽', 도발적인 미소 뒤의 날카로운 실력",
+    tags: ["배구", "다테공고", "철벽", "주포"],
+    chatCount: "5,400",
+    avatarUrl: "http://127.0.0.1:8000/uploads/futakuchi_cover.png",
+    coverUrl: "http://127.0.0.1:8000/uploads/futakuchi_cover.png"
+  },
+  {
+    id: "ma9",
+    name: "보쿠토 코타로",
+    description: "후쿠로다니의 '에이스', 헤이 헤이 헤이! 무한 텐션 스파이커",
+    tags: ["배구", "후쿠로다니", "에이스", "텐션"],
+    chatCount: "1.2만",
+    avatarUrl: "http://127.0.0.1:8000/uploads/bokuto_cover.png",
+    coverUrl: "http://127.0.0.1:8000/uploads/bokuto_cover.png"
   }
 ];
 

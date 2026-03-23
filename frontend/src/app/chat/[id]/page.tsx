@@ -15,6 +15,41 @@ const popularCharacters: Record<string, any> = {
     description: '이나리자키 고교 배구부의 천재 세터. 고교 No.1 세터로 불리며 승부욕이 매우 강합니다.',
     greeting: '(코트 위에 서서 배구공을 굴리며 당신을 빤히 바라본다) "어이, 니. 내 토스 함 쳐볼래? 아무한테나 주는 거 아인디."' 
   },
+  'ma5': {
+    name: '오이카와 토오루',
+    avatarUrl: 'http://127.0.0.1:8000/uploads/oikawa_cover.png',
+    coverUrl: 'http://127.0.0.1:8000/uploads/oikawa_cover.png',
+    description: "아오바죠사이 고교 배구부 주장 및 세터. 현 내 최정상급 실력을 가진 천재형 노력가. 쾌활하고 능글맞은 성격이지만 코트 위에서는 누구보다 냉정하고 날카롭습니다.",
+    greeting: '야호~ 잘 지냈어? 아, 여긴 예쁜 아가씨도 있네? 우리 세이죠에 구경하러 온 거야?'
+  },
+  'ma6': {
+    name: '우시지마 와카토시',
+    avatarUrl: 'http://127.0.0.1:8000/uploads/ushijima_cover.png',
+    coverUrl: 'http://127.0.0.1:8000/uploads/ushijima_cover.png',
+    description: "시라토리자와 고교 배구부 주장 및 에이스. 압도적인 힘과 파괴력을 가진 전국 3대 에이스 중 한 명입니다.",
+    greeting: '시라토리자와에 와라. 이곳에 너를 위한 최상의 팀이 기다리고 있다.'
+  },
+  'ma7': {
+    name: '히나타 쇼요',
+    avatarUrl: 'http://127.0.0.1:8000/uploads/hinata_cover.png',
+    coverUrl: 'http://127.0.0.1:8000/uploads/hinata_cover.png',
+    description: "카라스노 고교 배구부의 미들 블로커. 작은 체구에도 불구하고 압도적인 점프력과 스피드로 코트를 가르는 '작은 거인'입니다.",
+    greeting: '오오! 너 배구 좋아해? 나랑 같이 연습하자! 나, 더 높이 날고 싶어!'
+  },
+  'ma8': {
+    name: '후타쿠치 켄지',
+    avatarUrl: 'http://127.0.0.1:8000/uploads/futakuchi_cover.png',
+    coverUrl: 'http://127.0.0.1:8000/uploads/futakuchi_cover.png',
+    description: "다테 공업 고등학교 배구부의 에이스이자 차기 주장. 뛰어난 블로킹 능력과 상대를 도발하는 심리전에 능합니다.",
+    greeting: '여어, 우리 철벽 구경하러 온 거야? 조심해, 한 번 걸리면 못 빠져나가니까.'
+  },
+  'ma9': {
+    name: '보쿠토 코타로',
+    avatarUrl: 'http://127.0.0.1:8000/uploads/bokuto_cover.png',
+    coverUrl: 'http://127.0.0.1:8000/uploads/bokuto_cover.png',
+    description: "후쿠로다니 학원 고교 배구부의 주장 및 에이스. 전국 다섯 손가락 안에 드는 스파이커로, 엄청난 텐션과 실력을 자랑합니다.",
+    greeting: '오오─!! 헤이 헤이 헤이! 오늘도 컨디션 최고라고! 내 스파이크, 볼래?'
+  }
 };
 
 export default function ChatPage({ params }: { params: Promise<{ id: string }> }) {
@@ -30,6 +65,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const [settings, setSettings] = useState({
     theme: 'basic',
     showProfile: true,
+    showStatus: true,
     autoBg: false,
     haptic: true
   });
@@ -50,37 +86,50 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
 
     const fetchInitialData = async () => {
       try {
-        let firstChar: any = null;
-        if (id.startsWith('my-')) {
-          const charIdx = parseInt(id.replace('my-', ''));
-          const charRes = await fetch(`http://127.0.0.1:8000/characters/${charIdx}`);
-          if (charRes.ok) {
-            const data = await charRes.json();
-            firstChar = { id, ...data, avatarUrl: data.avatar_url || '/avatar.png' };
-          }
-        } else if (popularCharacters[id]) {
-          firstChar = { id, ...popularCharacters[id] };
-        }
-
-        if (firstChar) {
-          setActiveCharacters([firstChar]);
-          setSelectedCharacter(firstChar);
-        }
-
         const response = await fetch(`http://127.0.0.1:8000/chats/${id}`);
+        let chatData: any = null;
         if (response.ok) {
-          const data = await response.json();
-          if (data && data.messages) {
-            setMessages(data.messages);
-            setFavorability(data.favorability || 0);
-          } else if (firstChar) {
-            setMessages([{
-              id: Date.now(),
-              content: firstChar.greeting || '안녕하세요!',
-              isAi: true,
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            }]);
+          chatData = await response.json();
+        }
+
+        const fetchCharInfo = async (charId: string) => {
+          if (charId.startsWith('my-')) {
+            const idx = parseInt(charId.replace('my-', ''));
+            const res = await fetch(`http://127.0.0.1:8000/characters/${idx}`);
+            if (res.ok) {
+              const data = await res.json();
+              return { id: charId, ...data, avatarUrl: data.avatar_url || '/avatar.png' };
+            }
+          } else if (popularCharacters[charId]) {
+            return { id: charId, ...popularCharacters[charId] };
           }
+          return null;
+        };
+
+        // 참여 캐릭터 리스트 결정
+        const charIdsToFetch = (chatData && chatData.char_ids && chatData.char_ids.length > 0) 
+          ? chatData.char_ids 
+          : [id];
+
+        const fetchedChars = await Promise.all(charIdsToFetch.map(fetchCharInfo));
+        const finalChars = fetchedChars.filter(c => c !== null);
+
+        if (finalChars.length > 0) {
+          setActiveCharacters(finalChars);
+          setSelectedCharacter(finalChars[0]);
+        }
+
+        if (chatData && chatData.messages && chatData.messages.length > 0) {
+          setMessages(chatData.messages);
+          setFavorability(chatData.favorability || 0);
+          setSelectedProfileIndex(chatData.user_profile_index || 0);
+        } else if (finalChars.length > 0) {
+          setMessages([{
+            id: Date.now(),
+            content: finalChars[0].greeting || '안녕하세요!',
+            isAi: true,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }]);
         }
       } catch (error) {
         console.error('Failed to fetch initial data:', error);
@@ -91,15 +140,20 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   }, [id]);
 
   useEffect(() => {
-    if (messages.length > 0) {
-      const charId = activeCharacters[0]?.id || id;
+    if (messages.length > 0 && activeCharacters.length > 0) {
+      const charId = activeCharacters[0].id || id;
       fetch(`http://127.0.0.1:8000/chats/${charId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages, favorability }),
+        body: JSON.stringify({ 
+          messages, 
+          favorability, 
+          user_profile_index: selectedProfileIndex,
+          char_ids: activeCharacters.map(c => c.id)
+        }),
       }).catch(err => console.error('Save error:', err));
     }
-  }, [messages, favorability, activeCharacters, id]);
+  }, [messages, favorability, activeCharacters, id, selectedProfileIndex]);
 
   const handleSend = async (text: string) => {
     if (!text.trim()) return;
@@ -127,13 +181,37 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
 
       if (response.ok) {
         const data = await response.json();
-        const aiMsg = {
-          id: Date.now() + 1,
-          content: data.reply,
-          isAi: true,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-        setMessages(prev => [...prev, aiMsg]);
+        const reply = data.reply;
+        
+        // 멀티 캐릭터 답변 분리 로직 ([이름] 태그 기준, 상태창/FEED/호감도 태그 제외)
+        const parts = reply.trim().split(/(\[(?![^\]]*?(?:상태창|FEED|호감도))[^\]]+\])/).filter(Boolean);
+        const newAiMsgs: any[] = [];
+        
+        if (parts.length >= 2 && parts[0].startsWith('[')) {
+          for (let i = 0; i < parts.length; i += 2) {
+            const nameTag = parts[i];
+            const content = parts[i + 1] || '';
+            if (nameTag.startsWith('[') && content.trim()) {
+              newAiMsgs.push({
+                id: Date.now() + i,
+                content: `${nameTag} ${content.trim()}`,
+                isAi: true,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              });
+            }
+          }
+        }
+        
+        if (newAiMsgs.length === 0) {
+          newAiMsgs.push({
+            id: Date.now() + 1,
+            content: reply,
+            isAi: true,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          });
+        }
+
+        setMessages(prev => [...prev, ...newAiMsgs]);
         setFavorability(data.favorability);
       }
     } catch (error) {
@@ -217,6 +295,20 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     }
   };
 
+  const handleProfileClick = async (char: any) => {
+    setSelectedCharacter(char);
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/chats/${char.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setFavorability(data.favorability || 0);
+      }
+    } catch (err) {
+      console.error('Fetch fav error:', err);
+    }
+    setIsProfileModalOpen(true);
+  };
+
   return (
     <main className="min-h-screen bg-background text-foreground flex flex-col pt-16">
       <ChatHeader 
@@ -228,29 +320,20 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         settings={settings}
         onSettingsChange={setSettings}
         onResetChat={handleResetChat}
-        onAvatarClick={(char: any) => {
-          setSelectedCharacter(char);
-          setIsProfileModalOpen(true);
-        }}
+        onAvatarClick={handleProfileClick}
       />
-      
-      <div className="flex-1 overflow-y-auto pb-32 px-4 no-scrollbar">
-        <div className="max-w-4xl mx-auto space-y-2 pt-4">
-          {messages.map((msg, index) => (
+
+      <div className="flex-1 max-w-4xl mx-auto w-full px-4 pb-32">
+        <div className="space-y-2">
+          {messages.map((message) => (
             <Message 
-              key={msg.id || index} 
-              content={msg.content} 
-              isAi={msg.isAi} 
-              imageUrl={msg.imageUrl}
-              timestamp={msg.timestamp} 
+              key={message.id} 
+              {...message} 
               settings={settings}
               userProfile={userProfiles[selectedProfileIndex]}
               activeCharacters={activeCharacters}
-              favorability={msg.isAi && index === messages.length - 1 ? favorability : undefined}
-              onAvatarClick={(char: any) => {
-                setSelectedCharacter(char);
-                setIsProfileModalOpen(true);
-              }}
+              favorability={favorability}
+              onAvatarClick={handleProfileClick}
             />
           ))}
         </div>
@@ -265,8 +348,9 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       {selectedCharacter && (
         <CharacterProfileModal 
           isOpen={isProfileModalOpen} 
-          onClose={() => setIsProfileModalOpen(false)} 
-          character={selectedCharacter} 
+          onClose={() => setIsProfileModalOpen(false)}
+          character={selectedCharacter}
+          favorability={favorability}
         />
       )}
 

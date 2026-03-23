@@ -8,6 +8,7 @@ interface MessageProps {
   settings?: {
     theme: string;
     showProfile: boolean;
+    showStatus: boolean;
   };
   userProfile?: {
     name: string;
@@ -128,7 +129,7 @@ const Message: React.FC<MessageProps> = ({
             </p>
           </div>
 
-          {isAi && statusBlocks.length > 0 && (
+          {isAi && settings?.showStatus && statusBlocks.length > 0 && (
             <div className={`mt-2 pt-3 border-t ${theme === 'basic' ? 'border-white/5' : 'border-black/5'}`}>
               <button 
                 onClick={() => setIsStatusOpen(!isStatusOpen)}

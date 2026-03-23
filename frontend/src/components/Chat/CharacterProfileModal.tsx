@@ -10,9 +10,10 @@ interface CharacterProfileModalProps {
     coverUrl?: string;
     description?: string;
   };
+  favorability?: number;
 }
 
-const CharacterProfileModal: React.FC<CharacterProfileModalProps> = ({ isOpen, onClose, character }) => {
+const CharacterProfileModal: React.FC<CharacterProfileModalProps> = ({ isOpen, onClose, character, favorability = 0 }) => {
   if (!isOpen) return null;
 
   return (
@@ -64,6 +65,21 @@ const CharacterProfileModal: React.FC<CharacterProfileModalProps> = ({ isOpen, o
           </div>
 
           <h2 className="text-2xl font-black text-white mb-2 tracking-tight">{character.name}</h2>
+          
+          {/* Favorability Section */}
+          <div className="flex flex-col items-center gap-2 mb-4 w-full max-w-[200px]">
+            <div className="flex items-center gap-1.5">
+              <Star className="w-4 h-4 text-rose-500 fill-rose-500" />
+              <span className="text-[13px] font-black text-rose-500 uppercase tracking-tighter">Affection {favorability}%</span>
+            </div>
+            <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-rose-400 to-rose-600 transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(251,113,133,0.5)]" 
+                style={{ width: `${favorability}%` }} 
+              />
+            </div>
+          </div>
+
           <p className="text-sm text-gray-400 font-medium leading-relaxed max-w-[280px]">
             {character.description || '반갑습니다! 저와 대화해봐요.'}
           </p>

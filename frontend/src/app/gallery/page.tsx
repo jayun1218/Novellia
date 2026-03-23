@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Image as ImageIcon, Download, Share2, ZoomIn, X, Clock, User } from 'lucide-react';
+import { Image as ImageIcon, Download, Share2, ZoomIn, X, Clock, User, Trash2 } from 'lucide-react';
 import Sidebar from '@/components/Layout/Sidebar';
 import BottomNav from '@/components/Layout/BottomNav';
 
@@ -32,6 +32,27 @@ export default function GalleryPage() {
       console.error('Failed to fetch gallery:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async (image: GalleryImage) => {
+    if (!window.confirm('이 소중한 순간을 정말 삭제할까요?')) return;
+
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/gallery?char_id=${image.char_id}&image_url=${encodeURIComponent(image.url)}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        setImages(images.filter(img => img.url !== image.url));
+        setSelectedImage(null);
+        alert('삭제되었습니다.');
+      } else {
+        alert('삭제에 실패했습니다.');
+      }
+    } catch (err) {
+      console.error('Delete failed:', err);
+      alert('오류가 발생했습니다.');
     }
   };
 
@@ -167,6 +188,12 @@ export default function GalleryPage() {
                     <Share2 className="w-5 h-5" /> 공유
                   </button>
                 </div>
+                <button 
+                  onClick={() => handleDelete(selectedImage)}
+                  className="w-full flex items-center justify-center gap-2 py-4 bg-red-500/10 text-red-500 rounded-2xl font-black hover:bg-red-500/20 transition-all border border-red-500/20 mt-3"
+                >
+                  <Trash2 className="w-5 h-5" /> 기록 삭제
+                </button>
               </div>
             </div>
           </div>
