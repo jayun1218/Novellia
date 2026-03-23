@@ -12,8 +12,10 @@ interface CharacterProfileModalProps {
   onClose: () => void;
   character: {
     name: string;
-    avatarUrl: string;
-    coverUrl?: string;
+    avatarUrl?: string; // camelCase (legacy)
+    avatar_url?: string; // snake_case (backend)
+    coverUrl?: string; // camelCase
+    cover_url?: string; // snake_case
     description?: string;
     unlockables?: Unlockable[];
     recommended_personas?: string[];
@@ -38,7 +40,7 @@ const CharacterProfileModal: React.FC<CharacterProfileModalProps> = ({ isOpen, o
         {/* Cover Image */}
         <div className="absolute top-0 w-full h-[300px] overflow-hidden">
           <img 
-            src={character.coverUrl || character.avatarUrl || '/avatar.png'} 
+            src={character.cover_url || character.coverUrl || character.avatar_url || character.avatarUrl || '/avatar.png'} 
             className="w-full h-full object-cover opacity-40 scale-110 blur-[1px]" 
             alt="Cover" 
           />
@@ -63,7 +65,7 @@ const CharacterProfileModal: React.FC<CharacterProfileModalProps> = ({ isOpen, o
           <div className="mb-4 relative group">
             <div className="w-24 h-24 rounded-[32px] overflow-hidden border-2 border-white/20 shadow-2xl bg-surface">
               <img 
-                src={character.avatarUrl || '/avatar.png'} 
+                src={character.avatar_url || character.avatarUrl || '/avatar.png'} 
                 className="w-full h-full object-cover" 
                 alt={character.name} 
               />
@@ -86,25 +88,6 @@ const CharacterProfileModal: React.FC<CharacterProfileModalProps> = ({ isOpen, o
             </div>
           </div>
 
-          {/* Recommended Personas (Selection Section) */}
-          <div className="w-full space-y-3 mb-10 text-left">
-            <div className="flex items-center gap-2 mb-3">
-              <User className="w-4 h-4 text-sky-400" />
-              <h3 className="text-[11px] font-black text-sky-400 uppercase tracking-widest">Recommended Roles</h3>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {character.recommended_personas?.map((persona, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => onApplyPersona?.(persona)}
-                  className="px-4 py-2 bg-white/[0.03] hover:bg-sky-500/10 border border-white/5 hover:border-sky-500/30 rounded-full text-[13px] font-bold text-gray-300 hover:text-sky-400 transition-all active:scale-95"
-                >
-                  {persona}
-                </button>
-              ))}
-            </div>
-            <p className="text-[10px] text-gray-500 font-medium px-1">원하는 역할을 클릭하면 즉시 설정됩니다.</p>
-          </div>
 
           {/* Secret Content Section */}
           <div className="w-full space-y-3 pt-6 border-t border-white/5">

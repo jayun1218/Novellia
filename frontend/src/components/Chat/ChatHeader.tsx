@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ShieldCheck, ChevronDown, Settings, User, Zap, Palette, Image as ImageIcon, Check, Clock } from 'lucide-react';
+import { ChevronLeft, ShieldCheck, ChevronDown, Settings, User, Zap, Palette, Image as ImageIcon, Check, Clock, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 interface ChatSettings {
@@ -22,6 +22,8 @@ interface ChatHeaderProps {
   onAvatarClick: (char: any) => void;
   onOpenScenarios: () => void;
   onOpenTimeline: () => void;
+  recommendedPersonas?: string[];
+  onApplyPersona?: (persona: string) => void;
 }
 
 const ChatHeader: React.FC<ChatHeaderProps> = ({ 
@@ -35,7 +37,9 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
   onResetChat,
   onAvatarClick,
   onOpenScenarios,
-  onOpenTimeline
+  onOpenTimeline,
+  recommendedPersonas = [],
+  onApplyPersona
 }) => {
   const [showProfiles, setShowProfiles] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -96,7 +100,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
                   className="relative cursor-pointer hover:z-10 transition-transform hover:scale-110 active:scale-95"
                 >
                   <img 
-                    src={char.avatarUrl || '/avatar.png'} 
+                    src={char.avatar_url || char.avatarUrl || '/avatar.png'} 
                     alt={char.name} 
                     className="w-10 h-10 rounded-full object-cover border-2 border-[#050505] shadow-lg" 
                   />
@@ -219,6 +223,37 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
                     ))
                   )}
                 </div>
+
+                {/* Recommended Personas (Refined Section) */}
+                {recommendedPersonas && recommendedPersonas.length > 0 && (
+                  <div className="border-t border-white/5 bg-white/[0.04] py-2">
+                    <div className="flex items-center gap-2 px-4 py-1.5 mb-1 opacity-60">
+                      <Zap className="w-3.5 h-3.5 text-orange-400 fill-orange-400" />
+                      <span className="text-[10px] font-black text-white uppercase tracking-widest">이 캐릭터에게 추천하는 역할</span>
+                    </div>
+                    <div className="space-y-0.5">
+                      {recommendedPersonas.map((p, i) => (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            onApplyPersona?.(p);
+                            setShowProfiles(false);
+                          }}
+                          className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-white/5 transition-all group"
+                        >
+                          <div className="w-7 h-7 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center group-hover:bg-orange-500/20 transition-colors">
+                            <Sparkles className="w-3.5 h-3.5 text-orange-400" />
+                          </div>
+                          <div className="text-left min-w-0">
+                            <p className="text-[11px] font-bold text-gray-300 group-hover:text-white truncate">{p}</p>
+                            <p className="text-[9px] text-gray-500 font-medium truncate">클릭하여 즉시 적용</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <Link 
                   href="/profiles"
                   className="block w-full px-4 py-2.5 text-center text-[11px] font-bold text-primary hover:bg-primary/5 border-t border-white/5 transition-colors"

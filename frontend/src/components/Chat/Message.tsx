@@ -46,7 +46,7 @@ const Message: React.FC<MessageProps> = ({
     
     return {
       name: char?.name || 'AI',
-      avatar: char?.avatarUrl || '/avatar.png',
+      avatar: char?.avatar_url || char?.avatarUrl || '/avatar.png',
       char: char
     };
   };
@@ -64,8 +64,8 @@ const Message: React.FC<MessageProps> = ({
       dialogue = dialogue.replace(match[0], "");
     }
 
-    // 화자 태그 제거 [이름]
-    dialogue = dialogue.replace(/^\[.*?\]\s*/, "");
+    // 화자 태그 및 배경 태그 제거
+    dialogue = dialogue.replace(/^\[.*?\]\s*/, "").replace(/\[BG:\s*.*?\]/g, "");
 
     return { dialogue: dialogue.trim(), statusBlocks };
   };

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Camera, Check, X, Save, User as UserIcon, Trash, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Camera, Check, X, Save, User as UserIcon, Trash, Loader2, Sparkles } from 'lucide-react';
 
 interface UserProfile {
   name: string;
@@ -26,6 +26,7 @@ export default function ProfilesPage() {
     avatar_url: '/avatar.png',
     use_playing_name: true,
   });
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
   useEffect(() => {
     fetchProfiles();
@@ -62,8 +63,15 @@ export default function ProfilesPage() {
 
   const handleSave = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/user-profiles', {
-        method: 'POST',
+      const isNew = currentIndex === null;
+      const url = isNew 
+        ? 'http://127.0.0.1:8000/user-profiles' 
+        : `http://127.0.0.1:8000/user-profiles/${currentIndex}`;
+      
+      const method = isNew ? 'POST' : 'PUT';
+
+      const response = await fetch(url, {
+        method: method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
@@ -109,6 +117,39 @@ export default function ProfilesPage() {
       console.error('Failed to upload image:', error);
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleAIGenerate = async () => {
+    if (!formData.name) {
+      alert('이름을 먼저 입력해주세요.');
+      return;
+    }
+
+    setIsGeneratingAI(true);
+    try {
+      const response = await fetch('http://127.0.0.1:8000/generate-persona', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          short_bio: formData.short_bio,
+          description: formData.description
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setFormData(prev => ({
+          ...prev,
+          description: data.description || prev.description,
+          persona: data.persona || prev.persona
+        }));
+      }
+    } catch (error) {
+      console.error('AI Generation error:', error);
+    } finally {
+      setIsGeneratingAI(false);
     }
   };
 
@@ -245,7 +286,22 @@ export default function ProfilesPage() {
               </div>
 
               <div className="space-y-4">
-                <label className="text-[11px] font-black text-gray-500 tracking-[0.2em] uppercase px-1">유저 설명 (기본 인식)</label>
+                <div className="flex items-center justify-between px-1">
+                  <label className="text-[11px] font-black text-gray-500 tracking-[0.2em] uppercase">유저 설명 (기본 인식)</label>
+                  <button 
+                    onClick={handleAIGenerate}
+                    disabled={isGeneratingAI}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-xl text-[10px] font-black text-primary hover:bg-primary/20 transition-all disabled:opacity-50 group"
+                    type="button"
+                  >
+                    {isGeneratingAI ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform" />
+                    )}
+                    AI 자동 완성
+                  </button>
+                </div>
                 <div className="relative">
                   <textarea 
                     value={formData.description}

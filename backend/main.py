@@ -543,6 +543,43 @@ async def scrape_namuwiki(request: NamuRequest):
         except Exception as e:
             return {"error": str(e)}, 500
 
+class PersonaGenerateRequest(BaseModel):
+    name: str = ""
+    short_bio: str = ""
+    description: str = ""
+
+@app.post("/generate-persona")
+async def generate_persona(request: PersonaGenerateRequest):
+    try:
+        prompt = f"""사용자 페르소나를 상세하게 생성해주세요.
+        이름: {request.name}
+        한 줄 소개: {request.short_bio}
+        기본 설정(Description): {request.description}
+        
+        특히 '기본 설정'에 담긴 정보를 분석하여, 대화에서 캐릭터들이 이 사용자를 어떻게 대해야 할지, 
+        사용자의 과거 배경이나 성격, 세계관 내에서의 위치 등을 포함한 구체적인 '상세 페르소나(lore/persona)'를 작성해주세요.
+        
+        작성 지침:
+        - 상세 배경 스토리(description): 기존 설정을 바탕으로 2-3문장 정도 더 보완하여 자연스럽게 작성하세요.
+        - 상세 페르소나(persona): 캐릭터들이 이 사용자를 인식하는 방식, 말투, 특정 행동 양식, 세계관적 깊이를 포함하여 풍부하게 작성하세요.
+        - 언어는 반드시 한국어로 작성하세요.
+        
+        형식은 반드시 다음 키를 가진 JSON으로 반환해주세요:
+        {{
+            "description": "보완된 배경 스토리",
+            "persona": "풍부하게 작성된 상세 페르소나/로어"
+        }}"""
+        
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"}
+        )
+        return json.loads(response.choices[0].message.content)
+    except Exception as e:
+        print(f"AI Persona Generation Error: {e}")
+        return {"description": "생성에 실패했습니다.", "persona": "다시 시도해주세요."}
+
 @app.get("/user-profiles")
 async def get_user_profiles():
     return user_profiles_db
@@ -551,6 +588,15 @@ async def get_user_profiles():
 async def create_user_profile(profile: UserProfile):
     user_profiles_db.append(profile.dict())
     save_db(PROFILES_FILE, user_profiles_db)
+    return profile
+
+@app.put("/user-profiles/{index}")
+async def update_user_profile(index: int, profile: UserProfile):
+    if 0 <= index < len(user_profiles_db):
+        user_profiles_db[index] = profile.dict()
+        save_db(PROFILES_FILE, user_profiles_db)
+        return user_profiles_db[index]
+    raise HTTPException(status_code=404, detail="Profile not found")
     return {"message": "User profile created", "index": len(user_profiles_db) - 1}
 
 @app.delete("/user-profiles/{index}")
