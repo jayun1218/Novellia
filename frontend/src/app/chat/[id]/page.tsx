@@ -5,6 +5,7 @@ import ChatHeader from '@/components/Chat/ChatHeader';
 import Message from '@/components/Chat/Message';
 import ChatInput from '@/components/Chat/ChatInput';
 import CharacterProfileModal from '@/components/Chat/CharacterProfileModal';
+import QuestWidget from '@/components/Chat/QuestWidget';
 
 const popularCharacters: Record<string, any> = {
   'ma4': { 
@@ -18,12 +19,14 @@ const popularCharacters: Record<string, any> = {
 
 export default function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [character, setCharacter] = useState<any>(null);
+  const [activeCharacters, setActiveCharacters] = useState<any[]>([]);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [selectedCharacter, setSelectedCharacter] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [userProfiles, setUserProfiles] = useState<any[]>([]);
   const [selectedProfileIndex, setSelectedProfileIndex] = useState<number>(0);
   const [favorability, setFavorability] = useState(0);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [settings, setSettings] = useState({
     theme: 'basic',
     showProfile: true,
@@ -45,191 +48,190 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     };
     fetchUserProfiles();
 
-    const fetchChatHistoryAndChar = async () => {
+    const fetchInitialData = async () => {
       try {
+        let firstChar: any = null;
+        if (id.startsWith('my-')) {
+          const charIdx = parseInt(id.replace('my-', ''));
+          const charRes = await fetch(`http://127.0.0.1:8000/characters/${charIdx}`);
+          if (charRes.ok) {
+            const data = await charRes.json();
+            firstChar = { id, ...data, avatarUrl: data.avatar_url || '/avatar.png' };
+          }
+        } else if (popularCharacters[id]) {
+          firstChar = { id, ...popularCharacters[id] };
+        }
+
+        if (firstChar) {
+          setActiveCharacters([firstChar]);
+          setSelectedCharacter(firstChar);
+        }
+
         const response = await fetch(`http://127.0.0.1:8000/chats/${id}`);
         if (response.ok) {
           const data = await response.json();
-          let history = [];
-          let fav = 0;
-
           if (data && data.messages) {
-            history = data.messages;
-            fav = data.favorability || 0;
-          } else if (Array.isArray(data)) {
-            history = data;
-          }
-
-          if (history.length > 0) {
-            setMessages(history);
-            setFavorability(fav);
-            
-            // Load character info
-            if (id.startsWith('my-')) {
-              const charIdx = parseInt(id.replace('my-', ''));
-              const charRes = await fetch(`http://127.0.0.1:8000/characters/${charIdx}`);
-              if (charRes.ok) {
-                const charData = await charRes.json();
-                setCharacter({ 
-                  name: charData.name, 
-                  avatarUrl: charData.avatar_url || '/avatar.png',
-                  coverUrl: charData.cover_url || charData.avatar_url || '/avatar.png',
-                  description: charData.description
-                });
-              }
-            } else if (popularCharacters[id]) {
-              setCharacter(popularCharacters[id]);
-            }
-            return;
+            setMessages(data.messages);
+            setFavorability(data.favorability || 0);
+          } else if (firstChar) {
+            setMessages([{
+              id: Date.now(),
+              content: firstChar.greeting || '안녕하세요!',
+              isAi: true,
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            }]);
           }
         }
       } catch (error) {
-        console.error('Failed to fetch chat history:', error);
+        console.error('Failed to fetch initial data:', error);
       }
-
-      // If no history, load character and set greeting
-      const loadCharacter = async () => {
-        if (id.startsWith('my-')) {
-          const index = parseInt(id.replace('my-', ''));
-          try {
-            const response = await fetch(`http://127.0.0.1:8000/characters/${index}`);
-            if (response.ok) {
-              const data = await response.json();
-              const charData = {
-                name: data.name,
-                avatarUrl: data.avatar_url || '/avatar.png',
-                coverUrl: data.cover_url || data.avatar_url || '/avatar.png',
-                description: data.description,
-                greeting: data.greeting || '안녕하세요, 만나서 반가워요!'
-              };
-              setCharacter(charData);
-              const firstMsg = {
-                id: Date.now(),
-                content: charData.greeting,
-                isAi: true,
-                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-              };
-              setMessages([firstMsg]);
-            }
-          } catch (error) {
-            console.error('Failed to load character:', error);
-          }
-        } else if (popularCharacters[id]) {
-          const charData = popularCharacters[id];
-          setCharacter(charData);
-          setMessages([{
-            id: Date.now(),
-            content: charData.greeting,
-            isAi: true,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }]);
-        }
-      };
-      loadCharacter();
     };
 
-    fetchChatHistoryAndChar();
+    fetchInitialData();
   }, [id]);
 
   useEffect(() => {
     if (messages.length > 0) {
-      const saveHistory = async () => {
-        try {
-          await fetch(`http://127.0.0.1:8000/chats/${id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages, favorability }),
-          });
-        } catch (error) {
-          console.error('Failed to save chat history:', error);
-        }
-      };
-      saveHistory();
+      const charId = activeCharacters[0]?.id || id;
+      fetch(`http://127.0.0.1:8000/chats/${charId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages, favorability }),
+      }).catch(err => console.error('Save error:', err));
     }
-  }, [messages, id, favorability]);
-
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  }, [messages, favorability, activeCharacters, id]);
 
   const handleSend = async (text: string) => {
-    // ... 기존 코드 유지
-  }
+    if (!text.trim()) return;
+
+    const userMsg = {
+      id: Date.now(),
+      content: text,
+      isAi: false,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    
+    setMessages(prev => [...prev, userMsg]);
+
+    try {
+      const response = await fetch('http://127.0.0.1:8000/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          char_ids: activeCharacters.map(c => c.id),
+          chat_history: messages.map(m => ({ role: m.isAi ? 'assistant' : 'user', content: m.content })),
+          user_profile_index: selectedProfileIndex
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const aiMsg = {
+          id: Date.now() + 1,
+          content: data.reply,
+          isAi: true,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        setMessages(prev => [...prev, aiMsg]);
+        setFavorability(data.favorability);
+      }
+    } catch (error) {
+      console.error('Chat error:', error);
+    }
+  };
+
+  const inviteCharacter = async (charId: string) => {
+    if (activeCharacters.find(c => c.id === charId)) return;
+    
+    try {
+      let newChar: any = null;
+      if (charId.startsWith('my-')) {
+        const idx = parseInt(charId.replace('my-', ''));
+        const res = await fetch(`http://127.0.0.1:8000/characters/${idx}`);
+        if (res.ok) {
+          const data = await res.json();
+          newChar = { id: charId, ...data, avatarUrl: data.avatar_url || '/avatar.png' };
+        }
+      } else if (popularCharacters[charId]) {
+        newChar = { id: charId, ...popularCharacters[charId] };
+      }
+
+      if (newChar) {
+        setActiveCharacters(prev => [...prev, newChar]);
+        setMessages(prev => [...prev, {
+          id: Date.now(),
+          content: `*${newChar.name}님이 대화에 참여했습니다.*`,
+          isAi: true,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }]);
+      }
+    } catch (error) {
+      console.error('Invite error:', error);
+    }
+  };
 
   const handleGenerateScene = async (prompt: string) => {
-    if (isGeneratingImage) return;
-    
+    if (isGeneratingImage || activeCharacters.length === 0) return;
     setIsGeneratingImage(true);
     try {
-      // Get some context from last messages if prompt is empty
       const scenePrompt = prompt || messages.slice(-2).map(m => m.content).join(' ');
-      
       const response = await fetch('http://127.0.0.1:8000/generate-scene-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: scenePrompt, char_id: id }),
+        body: JSON.stringify({ prompt: scenePrompt, char_id: activeCharacters[0].id }),
       });
 
       if (response.ok) {
         const data = await response.json();
         if (data.url) {
-          const imageMsg = {
+          setMessages(prev => [...prev, {
             id: Date.now(),
-            content: `*${character.name}와(과) 함께하는 이 순간을 기록했습니다.*`,
+            content: `*${activeCharacters.map(c => c.name).join(', ')}와(과) 함께하는 이 순간을 기록했습니다.*`,
             isAi: true,
             imageUrl: data.url,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          };
-          setMessages(prev => [...prev, imageMsg]);
-        } else {
-          alert('이미지 생성에 실패했습니다.');
+          }]);
         }
       }
     } catch (error) {
       console.error('Scene generation error:', error);
-      alert('이미지 생성 중 오류가 발생했습니다.');
     } finally {
       setIsGeneratingImage(false);
     }
   };
 
   const handleResetChat = async () => {
+    const charId = activeCharacters[0]?.id || id;
     try {
-      const response = await fetch(`http://127.0.0.1:8000/chats/${id}`, {
-        method: 'DELETE',
-      });
-      if (response.ok) {
-        setMessages([{
-          id: Date.now(),
-          content: character.greeting || '안녕하세요, 만나서 반가워요!',
-          isAi: true,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }]);
-        setFavorability(0);
-      }
+      await fetch(`http://127.0.0.1:8000/chats/${charId}`, { method: 'DELETE' });
+      setMessages([{
+        id: Date.now(),
+        content: activeCharacters[0]?.greeting || '안녕하세요!',
+        isAi: true,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+      setFavorability(0);
     } catch (error) {
-      console.error('Failed to reset chat:', error);
-      alert('초기화 중 오류가 발생했습니다.');
+      console.error('Reset error:', error);
     }
   };
-
-  if (!character) return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-primary"></div>
-    </div>
-  );
 
   return (
     <main className="min-h-screen bg-background text-foreground flex flex-col pt-16">
       <ChatHeader 
-        name={character.name} 
-        status="당신과 함께 이야기를 만들어가는 중" 
-        avatarUrl={character.avatarUrl} 
+        activeCharacters={activeCharacters} 
+        onInvite={inviteCharacter}
         userProfiles={userProfiles}
         selectedProfileIndex={selectedProfileIndex}
         onProfileSelect={(index) => setSelectedProfileIndex(index)}
         settings={settings}
         onSettingsChange={setSettings}
         onResetChat={handleResetChat}
-        onAvatarClick={() => setIsProfileModalOpen(true)}
+        onAvatarClick={(char: any) => {
+          setSelectedCharacter(char);
+          setIsProfileModalOpen(true);
+        }}
       />
       
       <div className="flex-1 overflow-y-auto pb-32 px-4 no-scrollbar">
@@ -243,10 +245,12 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
               timestamp={msg.timestamp} 
               settings={settings}
               userProfile={userProfiles[selectedProfileIndex]}
-              aiAvatarUrl={character.avatarUrl}
-              aiName={character.name}
+              activeCharacters={activeCharacters}
               favorability={msg.isAi && index === messages.length - 1 ? favorability : undefined}
-              onAvatarClick={() => setIsProfileModalOpen(true)}
+              onAvatarClick={(char: any) => {
+                setSelectedCharacter(char);
+                setIsProfileModalOpen(true);
+              }}
             />
           ))}
         </div>
@@ -258,13 +262,20 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         isGeneratingImage={isGeneratingImage}
       />
 
-      {character && (
+      {selectedCharacter && (
         <CharacterProfileModal 
           isOpen={isProfileModalOpen} 
           onClose={() => setIsProfileModalOpen(false)} 
-          character={character} 
+          character={selectedCharacter} 
         />
       )}
+
+      {/* Quest System Widget */}
+      <QuestWidget 
+        favorability={favorability} 
+        messageCount={messages.length} 
+        characterCount={activeCharacters.length} 
+      />
     </main>
   );
 }

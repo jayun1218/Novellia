@@ -7,6 +7,7 @@ interface UserProfile {
   name: string;
   short_bio: string;
   description: string;
+  persona: string; // 유저 로어 추가
   avatar_url: string;
   use_playing_name: boolean;
 }
@@ -19,6 +20,7 @@ export default function ProfilesPage() {
     name: '',
     short_bio: '',
     description: '',
+    persona: '',
     avatar_url: '/avatar.png',
     use_playing_name: true,
   });
@@ -42,6 +44,7 @@ export default function ProfilesPage() {
       name: '',
       short_bio: '',
       description: '',
+      persona: '',
       avatar_url: '/avatar.png',
       use_playing_name: true,
     });
@@ -57,19 +60,12 @@ export default function ProfilesPage() {
 
   const handleSave = async () => {
     try {
-      // For simplicity, we just push to the end or replace. 
-      // Backend actually marks them by index in this simple implementation.
       const response = await fetch('http://127.0.0.1:8000/user-profiles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
       if (response.ok) {
-        if (currentIndex !== null) {
-          // If editing, we should ideally have a PUT endpoint, but my current backend just appends.
-          // I'll fix the backend logic or just handle it as a refresh.
-          // Let's assume the user wants to add/manage.
-        }
         await fetchProfiles();
         setIsEditing(false);
       }
@@ -95,7 +91,7 @@ export default function ProfilesPage() {
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           <header className="flex items-center justify-between mb-10">
             <div>
-              <h1 className="text-3xl font-black text-white mb-2">유저 프로필 리스트</h1>
+              <h1 className="text-3xl font-black text-white mb-2">나의 조력자 리스트</h1>
               <p className="text-gray-400 text-sm">대화에서 나를 대신할 페르소나를 관리하세요.</p>
             </div>
             <button 
@@ -106,119 +102,132 @@ export default function ProfilesPage() {
             </button>
           </header>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {profiles.map((profile, index) => (
               <div 
                 key={index}
                 onClick={() => handleOpenEdit(index)}
-                className="glass-card p-6 flex items-center gap-4 cursor-pointer hover:border-primary/50 transition-all group"
+                className="glass-card p-6 flex items-center gap-5 cursor-pointer hover:border-primary/50 transition-all group relative overflow-hidden"
               >
-                <div className="w-16 h-16 rounded-2xl bg-surface border border-white/5 overflow-hidden flex-shrink-0">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-primary/10 transition-colors" />
+                <div className="w-20 h-20 rounded-[28px] bg-surface border border-white/10 overflow-hidden flex-shrink-0 shadow-xl group-hover:scale-105 transition-transform duration-500">
                   <img src={profile.avatar_url} alt={profile.name} className="w-full h-full object-cover" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-bold text-white truncate">{profile.name}</h3>
-                  <p className="text-sm text-gray-400 truncate">{profile.short_bio || '소개 없음'}</p>
+                <div className="flex-1 min-w-0 z-10">
+                  <h3 className="text-xl font-black text-white truncate mb-1">{profile.name}</h3>
+                  <p className="text-sm text-gray-400 truncate font-medium">{profile.short_bio || '개성 넘치는 유저'}</p>
                 </div>
                 <button 
                   onClick={(e) => handleDelete(index, e)}
-                  className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+                  className="p-3 text-gray-600 hover:text-red-500 transition-colors z-10"
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>
               </div>
             ))}
             {profiles.length === 0 && (
-              <div className="col-span-full py-20 text-center border-2 border-dashed border-white/5 rounded-3xl">
-                <UserIcon className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                <p className="text-gray-500">생성된 유저 프로필이 없습니다.</p>
+              <div className="col-span-full py-20 text-center border-2 border-dashed border-white/5 rounded-[40px] bg-white/[0.02]">
+                <UserIcon className="w-16 h-16 text-gray-700 mx-auto mb-4" />
+                <p className="text-gray-500 font-bold">생성된 유저 프로필이 없습니다.</p>
               </div>
             )}
           </div>
         </div>
       ) : (
-        <div className="animate-in fade-in zoom-in-95 duration-500 max-w-lg mx-auto">
-          <header className="flex items-center justify-between mb-10">
-            <button onClick={() => setIsEditing(false)} className="p-2 text-gray-400 hover:text-white transition-colors">
+        <div className="animate-in fade-in zoom-in-95 duration-500 max-w-xl mx-auto">
+          <header className="flex items-center justify-between mb-12">
+            <button onClick={() => setIsEditing(false)} className="p-2.5 bg-white/5 rounded-full text-gray-400 hover:text-white transition-all shadow-lg active:scale-90">
               <X className="w-6 h-6" />
             </button>
-            <h2 className="text-xl font-bold text-white">프로필 설정</h2>
+            <h2 className="text-2xl font-black text-white tracking-tight">프로필 설정</h2>
             <button 
               onClick={handleSave}
-              className="px-6 py-2 bg-primary text-white rounded-xl font-bold hover:bg-primary-hover transition-all"
+              className="px-8 py-3 bg-primary text-white rounded-2xl font-black hover:bg-primary-hover transition-all shadow-xl shadow-primary/20 active:scale-95"
             >
               저장
             </button>
           </header>
 
-          <div className="space-y-10">
-            {/* Avatar Section - Zeta Style */}
+          <div className="space-y-12">
             <div className="flex flex-col items-center">
               <div className="relative group cursor-pointer">
-                <div className="w-32 h-32 rounded-[32px] bg-surface border border-white/5 overflow-hidden">
+                <div className="w-40 h-40 rounded-[48px] bg-surface border-2 border-white/5 overflow-hidden shadow-2xl group-hover:border-primary/50 transition-all duration-500">
                   <img src={formData.avatar_url} alt="Profile" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="text-xs font-bold text-white uppercase tracking-tighter">이미지 편집</span>
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-sm">
+                    <Camera className="w-8 h-8 text-white mb-1" />
                   </div>
                 </div>
-                <button className="absolute -top-2 -right-2 p-2 bg-surface border border-white/10 rounded-full text-gray-400 hover:text-white shadow-xl">
-                  <Trash className="w-4 h-4" />
-                </button>
               </div>
             </div>
 
-            {/* Form Fields - Zeta Style */}
-            <div className="space-y-8">
-              <div className="space-y-3">
-                <label className="text-xs font-bold text-gray-500 tracking-wider">이름 <span className="text-primary">*</span></label>
+            <div className="space-y-10">
+              <div className="space-y-4">
+                <label className="text-[11px] font-black text-gray-500 tracking-[0.2em] uppercase px-1">기본 정보 <span className="text-primary">*</span></label>
                 <input 
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  placeholder="{{user}}"
-                  className="w-full bg-surface border-none rounded-xl p-4 text-white focus:ring-1 focus:ring-primary/50 transition-all"
+                  placeholder="당신의 이름을 입력하세요"
+                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-5 text-white font-bold focus:ring-2 focus:ring-primary/20 focus:bg-white/[0.06] transition-all outline-none"
                 />
-                <div className="flex items-center gap-2 mt-2">
-                  <div 
+                <div className="flex items-center gap-3 mt-3 px-1">
+                  <button 
                     onClick={() => setFormData({...formData, use_playing_name: !formData.use_playing_name})}
-                    className={`w-5 h-5 rounded flex items-center justify-center cursor-pointer transition-all ${formData.use_playing_name ? 'bg-primary border-primary' : 'border border-white/20'}`}
+                    className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all ${formData.use_playing_name ? 'bg-primary shadow-lg shadow-primary/20 scale-110' : 'bg-white/5 border border-white/10'}`}
                   >
-                    {formData.use_playing_name && <Check className="w-3 h-3 text-white" />}
-                  </div>
-                  <span className="text-xs text-gray-400 font-medium">플레이하는 유저 이름 사용하기</span>
+                    {formData.use_playing_name && <Check className="w-4 h-4 text-white" />}
+                  </button>
+                  <span className="text-[13px] text-gray-400 font-bold">플레이 중인 닉네임 사용</span>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <label className="text-xs font-bold text-gray-500 tracking-wider">짧은 소개 <span className="text-primary">*</span></label>
+              <div className="space-y-4">
+                <label className="text-[11px] font-black text-gray-500 tracking-[0.2em] uppercase px-1">짧은 소개</label>
                 <div className="relative">
-                  <textarea 
+                  <input 
+                    type="text"
                     value={formData.short_bio}
                     onChange={(e) => setFormData({...formData, short_bio: e.target.value})}
-                    placeholder="프로필의 특징을 짧게 입력하세요"
-                    className="w-full bg-surface border-none rounded-xl p-4 text-white focus:ring-1 focus:ring-primary/50 transition-all h-32 resize-none"
+                    placeholder="프로필 목록에 표시될 한 줄 소개"
+                    className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-5 text-white font-medium focus:ring-2 focus:ring-primary/20 outline-none"
                     maxLength={50}
                   />
-                  <span className="absolute bottom-4 right-4 text-[10px] font-bold text-gray-600">
+                  <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-600">
                     {formData.short_bio.length}/50
                   </span>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <label className="text-xs font-bold text-gray-500 tracking-wider">설명</label>
+              <div className="space-y-4">
+                <label className="text-[11px] font-black text-gray-500 tracking-[0.2em] uppercase px-1">유저 설명 (기본 인식)</label>
                 <div className="relative">
                   <textarea 
                     value={formData.description}
                     onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    placeholder="AI가 당신을 어떻게 인식해야 할까요? (나이, 성별, 키, 성격 등)"
-                    className="w-full bg-surface border-none rounded-xl p-4 text-white focus:ring-1 focus:ring-primary/50 transition-all h-48 resize-none"
+                    placeholder="AI가 당신을 어떻게 인식해야 할까요? (예: 18세, 차가운 성격의 우등생 등)"
+                    className="w-full bg-white/[0.03] border border-white/5 rounded-3xl p-6 text-white font-medium focus:ring-2 focus:ring-primary/20 h-40 resize-none outline-none leading-relaxed"
                     maxLength={500}
                   />
-                  <span className="absolute bottom-4 right-4 text-[10px] font-bold text-gray-600">
+                  <span className="absolute bottom-6 right-6 text-[10px] font-black text-gray-600">
                     {formData.description.length}/500
                   </span>
                 </div>
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-[11px] font-black text-primary/70 tracking-[0.2em] uppercase px-1">상세 페르소나 (로어/세계관)</label>
+                <div className="relative">
+                   <div className="absolute inset-0 bg-primary/5 rounded-[32px] blur-2xl -z-10 opacity-30" />
+                  <textarea 
+                    value={formData.persona}
+                    onChange={(e) => setFormData({...formData, persona: e.target.value})}
+                    placeholder="당신만의 상세한 설정이나 세계관 규칙을 입력하세요. 캐릭터들이 이 설정을 기반으로 당신을 대하게 됩니다."
+                    className="w-full bg-white/[0.04] border border-primary/10 rounded-[32px] p-7 text-white font-medium focus:ring-2 focus:ring-primary/40 h-64 resize-none outline-none leading-relaxed shadow-2xl"
+                  />
+                </div>
+                <p className="text-[11px] text-gray-500 px-2 font-medium leading-relaxed">
+                  * 팁: 인물 관계, 특정 사건의 기억, 금기 사항 등을 적으면 AI가 더 몰입감 있게 반응합니다.
+                </p>
               </div>
             </div>
           </div>

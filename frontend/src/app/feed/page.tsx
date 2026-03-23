@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Heart, MessageCircle, Share2, MoreHorizontal, Sparkles } from 'lucide-react';
 
 const mockFeedPosts = [
@@ -38,9 +38,29 @@ const mockFeedPosts = [
 ];
 
 export default function FeedPage() {
-  const [posts, setPosts] = useState(mockFeedPosts);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleLike = (id: number) => {
+  useEffect(() => {
+    fetchFeed();
+  }, []);
+
+  const fetchFeed = async () => {
+    try {
+      const res = await fetch('http://127.0.0.1:8000/feed');
+      if (res.ok) {
+        const data = await res.json();
+        setPosts(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch feed:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLike = async (id: number) => {
+    // Optimistic UI update
     setPosts(prev => prev.map(post => {
       if (post.id === id) {
         const isCurrentlyLiked = post.isLiked;
@@ -52,6 +72,14 @@ export default function FeedPage() {
       }
       return post;
     }));
+
+    try {
+      await fetch(`http://127.0.0.1:8000/feed/like/${id}`, { method: 'POST' });
+    } catch (err) {
+      console.error('Like failed:', err);
+      // Rollback on error if needed
+      fetchFeed();
+    }
   };
 
   return (
