@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Save, Sparkles, Image as ImageIcon, BookOpen, MessageSquare, Plus, RefreshCw, X } from 'lucide-react';
+import { Save, Sparkles, Image as ImageIcon, BookOpen, MessageSquare, Plus, RefreshCw, X, Settings, Zap, ChevronDown, ChevronUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const CreateCharacterPage = () => {
@@ -18,9 +18,48 @@ const CreateCharacterPage = () => {
     dialogueExamples: '',
     tags: [] as string[],
     newTag: '',
-    lorebook: [] as { key: string; value: string }[],
+    speech_style: '일반',
+    response_length: '보통',
+    expression_mode: '균형',
+    plot_speed: '보통',
+    atmosphere: '일반',
+    storytelling_style: '1인칭',
+    use_status_window: false,
+    status_config: {
+      background: ["날짜", "시간", "장소", "날씨", "상황"],
+      character: ["기분", "컨디션", "착장", "포즈", "목표", "관계성", "속마음", "소지품"]
+    },
+    lorebook: [] as { name: string; keywords: string[]; content: string }[],
     avatar_url: '',
   });
+
+  const [newLore, setNewLore] = useState({ name: '', keywords: '', content: '' });
+
+  const addLoreEntry = () => {
+    if (newLore.name && newLore.content) {
+      setFormData(prev => ({
+        ...prev,
+        lorebook: [
+          ...prev.lorebook, 
+          { 
+            name: newLore.name, 
+            keywords: newLore.keywords.split(',').map(k => k.trim()).filter(k => k), 
+            content: newLore.content 
+          }
+        ]
+      }));
+      setNewLore({ name: '', keywords: '', content: '' });
+    } else {
+      alert('이름과 내용은 필수입니다.');
+    }
+  };
+
+  const removeLoreEntry = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      lorebook: prev.lorebook.filter((_, i) => i !== index)
+    }));
+  };
 
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [selectedImgIndex, setSelectedImgIndex] = useState<number | null>(null);
@@ -67,6 +106,15 @@ const CreateCharacterPage = () => {
           greeting: formData.greeting,
           persona: formData.persona,
           tags: formData.tags,
+          speech_style: formData.speech_style,
+          response_length: formData.response_length,
+          expression_mode: formData.expression_mode,
+          plot_speed: formData.plot_speed,
+          atmosphere: formData.atmosphere,
+          storytelling_style: formData.storytelling_style,
+          use_status_window: formData.use_status_window,
+          status_config: formData.status_config,
+          lorebook: formData.lorebook,
           avatar_url: formData.avatar_url,
         }),
       });
@@ -163,6 +211,7 @@ const CreateCharacterPage = () => {
         {[
           { id: 'basic', label: '기본 정보', icon: Sparkles },
           { id: 'persona', label: '페르소나', icon: MessageSquare },
+          { id: 'advanced', label: '고급 설정', icon: Settings },
           { id: 'lore', label: '로어북', icon: BookOpen },
           { id: 'visual', label: '비주얼', icon: ImageIcon },
         ].map((tab) => (
@@ -205,8 +254,9 @@ const CreateCharacterPage = () => {
               <input name="description" value={formData.description} onChange={handleInputChange} type="text" placeholder="캐릭터를 한 문장으로 정의한다면?" className="w-full bg-surface border border-white/5 rounded-2xl p-4 text-white focus:outline-none focus:border-primary/50 transition-all" />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-bold text-gray-400 ml-1">첫 대사 (Greeting)</label>
-              <textarea name="greeting" value={formData.greeting} onChange={handleInputChange} rows={3} placeholder="사용자가 대화방에 입장했을 때 건낼 첫 마디입니다." className="w-full bg-surface border border-white/5 rounded-2xl p-4 text-white focus:outline-none focus:border-primary/50 transition-all resize-none" />
+              <label className="text-sm font-bold text-gray-400 ml-1">인트로 (상황극/첫 대사)</label>
+              <textarea name="greeting" value={formData.greeting} onChange={handleInputChange} rows={4} placeholder="사용자가 대화방에 입장했을 때의 상황과 첫 마디를 적어주세요. 예: (당신을 빤히 바라보며) '드디어 왔네. 기다리고 있었어.'" className="w-full bg-surface border border-white/5 rounded-2xl p-4 text-white focus:outline-none focus:border-primary/50 transition-all resize-none" />
+              <p className="text-[10px] text-gray-500 ml-1">* 여러 줄을 입력하여 상세한 초기 상황을 설정할 수 있습니다.</p>
             </div>
           </div>
         </div>
@@ -215,17 +265,169 @@ const CreateCharacterPage = () => {
       {/* Persona Tab */}
       {activeTab === 'persona' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-bold text-gray-400 ml-1">성격 및 배경 (Persona)</label>
-            <button onClick={autoGeneratePersona} className="flex items-center gap-1 text-xs text-primary font-bold hover:underline">
-              <Sparkles className="w-3 h-3" /> AI로 자동 채우기
-            </button>
+          <div className="space-y-4">
+            <label className="text-sm font-bold text-gray-400 ml-1">대화 스타일 (Manner of Speech)</label>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {[
+                { id: '일반', label: '일반', desc: '표준' },
+                { id: '반말', label: '반말', desc: '친근함' },
+                { id: '존댓말', label: '존댓말', desc: '정중함' },
+                { id: '시크함', label: '시크함', desc: '무심함' },
+                { id: '다정함', label: '다정함', desc: '따뜻함' },
+              ].map((style) => (
+                <button
+                  key={style.id}
+                  onClick={() => setFormData(prev => ({ ...prev, speech_style: style.id }))}
+                  className={`flex flex-col items-center justify-center p-4 rounded-2xl border transition-all ${
+                    formData.speech_style === style.id 
+                      ? 'bg-primary/20 border-primary text-primary shadow-lg shadow-primary/10' 
+                      : 'bg-surface border-white/5 text-gray-400 hover:text-white hover:border-white/10'
+                  }`}
+                >
+                  <span className="text-sm font-bold mb-1">{style.label}</span>
+                  <span className="text-[10px] opacity-60">{style.desc}</span>
+                </button>
+              ))}
+            </div>
           </div>
-          <textarea name="persona" value={formData.persona} onChange={handleInputChange} rows={8} placeholder="성격, 습관, 비밀, 말투의 특징 등을 상세하게 적어주세요. 많이 적을수록 더 생생하게 반응합니다." className="w-full bg-surface border border-white/5 rounded-2xl p-4 text-white focus:outline-none focus:border-primary/50 transition-all resize-none" />
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-bold text-gray-400 ml-1">성격 및 배경 (Persona)</label>
+              <button onClick={autoGeneratePersona} className="flex items-center gap-1 text-xs text-primary font-bold hover:underline">
+                <Sparkles className="w-3 h-3" /> AI로 자동 채우기
+              </button>
+            </div>
+            <textarea name="persona" value={formData.persona} onChange={handleInputChange} rows={8} placeholder="성격, 습관, 비밀, 말투의 특징 등을 상세하게 적어주세요. 많이 적을수록 더 생생하게 반응합니다." className="w-full bg-surface border border-white/5 rounded-2xl p-4 text-white focus:outline-none focus:border-primary/50 transition-all resize-none" />
+          </div>
           
           <div className="space-y-2">
             <label className="text-sm font-bold text-gray-400 ml-1">대화 예시 (Dialogue Examples)</label>
             <textarea name="dialogueExamples" value={formData.dialogueExamples} onChange={handleInputChange} rows={5} placeholder="사용자: 안녕?\n캐릭터: 흥, 또 왔나? 귀찮으니까 저리 가." className="w-full bg-surface border border-white/5 rounded-2xl p-4 text-white font-mono text-sm focus:outline-none focus:border-primary/50 transition-all resize-none" />
+          </div>
+        </div>
+      )}
+
+      {/* Advanced Tab */}
+      {activeTab === 'advanced' && (
+        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <label className="text-sm font-bold text-gray-400 ml-1">응답 길이</label>
+              <div className="flex gap-2">
+                {['짧음', '보통', '긺'].map(v => (
+                  <button key={v} onClick={() => setFormData(prev => ({ ...prev, response_length: v }))} className={`flex-1 py-3 rounded-xl border text-sm font-bold transition-all ${formData.response_length === v ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-white/5 text-gray-400'}`}>{v}</button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-4">
+              <label className="text-sm font-bold text-gray-400 ml-1">전개 속도</label>
+              <div className="flex gap-2">
+                {['느림', '보통', '빠름'].map(v => (
+                  <button key={v} onClick={() => setFormData(prev => ({ ...prev, plot_speed: v }))} className={`flex-1 py-3 rounded-xl border text-sm font-bold transition-all ${formData.plot_speed === v ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-white/5 text-gray-400'}`}>{v}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <label className="text-sm font-bold text-gray-400 ml-1">표현 방식</label>
+              <div className="flex gap-2">
+                {['대화 위주', '균형', '지문 위주'].map(v => (
+                  <button key={v} onClick={() => setFormData(prev => ({ ...prev, expression_mode: v }))} className={`flex-1 py-3 rounded-xl border text-sm font-bold transition-all ${formData.expression_mode === v ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-white/5 text-gray-400'}`}>{v}</button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-4">
+              <label className="text-sm font-bold text-gray-400 ml-1">시점 (Perspective)</label>
+              <div className="flex gap-2">
+                {['1인칭', '3인칭', '관찰자'].map(v => (
+                  <button key={v} onClick={() => setFormData(prev => ({ ...prev, storytelling_style: v }))} className={`flex-1 py-3 rounded-xl border text-sm font-bold transition-all ${formData.storytelling_style === v ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-white/5 text-gray-400'}`}>{v}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <label className="text-sm font-bold text-gray-400 ml-1">스토리 분위기 (Atmosphere)</label>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {['일반', '로맨틱', '다크', '코믹', '스릴러', '피폐', '일상'].map(v => (
+                <button key={v} onClick={() => setFormData(prev => ({ ...prev, atmosphere: v }))} className={`py-3 rounded-xl border text-sm font-bold transition-all ${formData.atmosphere === v ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-white/5 text-gray-400'}`}>{v}</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="p-6 bg-surface border border-white/5 rounded-3xl flex items-center justify-between group hover:border-primary/30 transition-all">
+              <div className="flex items-center gap-4">
+                <div className={`p-3 rounded-2xl transition-all ${formData.use_status_window ? 'bg-primary/20 text-primary' : 'bg-white/5 text-gray-500'}`}><Zap className="w-6 h-6" /></div>
+                <div>
+                  <h4 className="font-bold text-white mb-1">상태창 활성화</h4>
+                  <p className="text-xs text-gray-500">답변 끝에 호감도와 현재 상태를 요약해 보여줍니다.</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setFormData(prev => ({ ...prev, use_status_window: !prev.use_status_window }))}
+                className={`w-14 h-8 rounded-full transition-all relative ${formData.use_status_window ? 'bg-primary' : 'bg-white/10'}`}
+              >
+                <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${formData.use_status_window ? 'left-7' : 'left-1'}`} />
+              </button>
+            </div>
+
+            {formData.use_status_window && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                {/* Background Status */}
+                <div className="bg-surface border border-white/5 rounded-3xl overflow-hidden">
+                  <div className="p-4 bg-white/5 flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-white">배경 상태창</h4>
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {["날짜", "시간", "장소", "날씨", "상황"].map(field => (
+                      <div key={field} className="flex items-center justify-between py-1">
+                        <span className="text-sm text-gray-300">{field}</span>
+                        <button 
+                          onClick={() => {
+                            const current = formData.status_config.background;
+                            const next = current.includes(field) ? current.filter(f => f !== field) : [...current, field];
+                            setFormData(prev => ({ ...prev, status_config: { ...prev.status_config, background: next } }));
+                          }}
+                          className={`w-10 h-5 rounded-full relative transition-all ${formData.status_config.background.includes(field) ? 'bg-primary' : 'bg-white/10'}`}
+                        >
+                          <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${formData.status_config.background.includes(field) ? 'left-5.5' : 'left-0.5'}`} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Character Status */}
+                <div className="bg-surface border border-white/5 rounded-3xl overflow-hidden">
+                  <div className="p-4 bg-white/5 flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-white">캐릭터 상태창</h4>
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {["기분", "컨디션", "착장", "포즈", "목표", "관계성", "속마음", "소지품"].map(field => (
+                      <div key={field} className="flex items-center justify-between py-1">
+                        <span className="text-sm text-gray-300">{field}</span>
+                        <button 
+                          onClick={() => {
+                            const current = formData.status_config.character;
+                            const next = current.includes(field) ? current.filter(f => f !== field) : [...current, field];
+                            setFormData(prev => ({ ...prev, status_config: { ...prev.status_config, character: next } }));
+                          }}
+                          className={`w-10 h-5 rounded-full relative transition-all ${formData.status_config.character.includes(field) ? 'bg-primary' : 'bg-white/10'}`}
+                        >
+                          <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${formData.status_config.character.includes(field) ? 'left-5.5' : 'left-0.5'}`} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -240,9 +442,63 @@ const CreateCharacterPage = () => {
               <p className="text-sm text-gray-400 leading-relaxed">특정 단어가 대화 중에 등장하면 AI가 해당 설정을 기억해냅니다. 복잡한 세계관이나 인물 관계를 설정할 때 유용합니다.</p>
             </div>
           </div>
-          <button className="flex items-center justify-center gap-2 w-full p-4 border border-dashed border-white/10 rounded-2xl text-gray-400 hover:text-white hover:border-primary/50 transition-all">
-            <Plus className="w-5 h-5" /> 새로운 로어 항목 추가
-          </button>
+          {/* Lore List */}
+          <div className="space-y-4">
+            {formData.lorebook.map((entry, index) => (
+              <div key={index} className="bg-surface border border-white/5 p-4 rounded-2xl relative group">
+                <button 
+                  onClick={() => removeLoreEntry(index)}
+                  className="absolute top-4 right-4 p-1 bg-white/5 hover:bg-red-500/20 text-gray-400 hover:text-red-500 rounded-lg transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <h5 className="font-bold text-white mb-1 flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-primary" /> {entry.name}
+                </h5>
+                <p className="text-xs text-primary font-bold mb-2">Keywords: {entry.keywords.join(', ')}</p>
+                <p className="text-sm text-gray-400 line-clamp-2">{entry.content}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Add New Lore Form */}
+          <div className="bg-surface border border-white/5 p-6 rounded-2xl space-y-4">
+            <h4 className="font-bold text-white text-sm">새로운 로어 항목 추가</h4>
+            <div className="grid gap-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-500 uppercase ml-1">이름</label>
+                  <input 
+                    value={newLore.name}
+                    onChange={(e) => setNewLore(prev => ({ ...prev, name: e.target.value }))}
+                    type="text" placeholder="예: 검은 숲" className="w-full bg-white/5 border border-white/5 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-primary/50" 
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-500 uppercase ml-1">키워드 (쉼표 구분)</label>
+                  <input 
+                    value={newLore.keywords}
+                    onChange={(e) => setNewLore(prev => ({ ...prev, keywords: e.target.value }))}
+                    type="text" placeholder="예: 숲, 어둠, 나무" className="w-full bg-white/5 border border-white/5 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-primary/50" 
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-gray-500 uppercase ml-1">상세 내용</label>
+                <textarea 
+                  value={newLore.content}
+                  onChange={(e) => setNewLore(prev => ({ ...prev, content: e.target.value }))}
+                  rows={3} placeholder="AI가 인지할 상세 설정을 적어주세요." className="w-full bg-white/5 border border-white/5 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-primary/50 resize-none" 
+                />
+              </div>
+              <button 
+                onClick={addLoreEntry}
+                className="flex items-center justify-center gap-2 w-full p-4 bg-primary/10 text-primary border border-primary/20 rounded-xl font-bold hover:bg-primary/20 transition-all"
+              >
+                <Plus className="w-4 h-4" /> 항목 추가하기
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

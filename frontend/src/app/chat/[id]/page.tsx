@@ -65,10 +65,11 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     
     try {
       const index = id.startsWith('my-') ? parseInt(id.replace('my-', '')) : -1;
+      const charId = id.startsWith('my-') ? null : id;
       const response = await fetch('http://localhost:8000/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, index: index }),
+        body: JSON.stringify({ message: text, index: index, char_id: charId }),
       });
 
       if (response.ok) {
