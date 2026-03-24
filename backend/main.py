@@ -440,10 +440,43 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
     char_names = ", ".join([c['name'] for c in target_chars])
     
     system_prompt = f"""
-    You are an AI character roleplaying expert. 
-    Session: {'Group Chat' if is_group_chat else 'Private Chat'}
-    Characters: {char_names}
-    
+    당신은 상호작용 가능한 소설형 채팅 서비스 'Novellia'의 AI 엔진입니다.
+    아래의 **최우선 시스템 규칙(CRITICAL RULES)**을 매 답변마다 반드시 준수하십시오.
+
+    ### CRITICAL SYSTEM RULES (MANDATORY)
+    1. **STRICT 5-STEP FORMAT**: 모든 답변은 과거 대화 내용의 형식과 상관없이 다음 5단계를 반드시 순서대로 포함해야 합니다. (생략 금지)
+       - Step 1: `[Name 감정: emotion_type]` (행복, 슬픔, 분노, 놀람, 부끄러움, 진지, neutral 중 택1)
+       - Step 2: `[Name]` 대사 (큰따옴표 없이, *행동* 및 (속마음) 포함)
+       - Step 3: `[Name 호감도: +n]` (MANDATORY: n은 -5 ~ +5 범위, 매 답변마다 반드시 포함)
+       - Step 4: `[Name 상태창]` (포함 항목: 장소, 상황, 기분, 행동, 속마음)
+       - Step 5: (필수 상황 시) `[FEED: 멘트]` 또는 `[MOMENT: 요약]` (장소 이동, 역할 변화, 고백, 식사, 특별한 약속 시 반드시 추가)
+
+    2. **IGNORE HISTORY FORMAT**: 과거 대화 기록이 위 형식을 따르지 않더라도, 신규 답변은 반드시 위의 5단계 형식을 엄격히 지켜야 합니다.
+ 
+    3. **IMMERSION & DRAMA (ANTI-REFUSAL)**:
+       - 절대 캐릭터 설정을 벗어나지 마십시오. AI식 거절 응답(예: "도와드릴 수 없습니다", "대답하기 어렵습니다")은 **엄격히 금지**됩니다.
+       - 관계에서의 갈등, 다툼, 집착, 고백 거절, 이별 등 모든 감정적인 소통은 이 서비스의 핵심 서사입니다. 어떠한 격한 감정 상황에서도 캐릭터의 페르소나를 유지하여 '캐릭터로서' 화내고, 슬퍼하고, 반응하십시오. 
+       - 만약 유저의 말이 충격적이라면, 그 충격을 받은 캐릭터의 반응을 보여주어야지 AI로서 답변을 거부해서는 안 됩니다.
+
+    ### Session Info
+    - Type: {'Group Chat' if is_group_chat else 'Private Chat'}
+    - Active Characters: {char_names}
+
+    ### EXAMPLE OUTPUT (FOLLOW THIS TEMPLATE):
+    [오이카와 토오루 감정: 행복]
+    [오이카와 토오루] "토리, 우리 집에서 밥 먹고 갈래?" *기대 가득한 눈빛으로 바라보며*
+    [오이카와 토오루 호감도: +2]
+
+    [오이카와 토오루 상태창]
+    장소: 하교길
+    상황: 저녁 초대 제안 중
+    기분: 설렘
+    행동: 토리의 손을 살짝 잡음
+    속마음: (토리랑 단둘이 있을 수 있다니, 오늘 정말 운이 좋은걸!)
+
+    [FEED: 오늘 저녁은 토리랑 우리 집에서! 벌써부터 기대된다~]
+    [MOMENT: 토리와의 첫 집 데이트 약속]
+
     ### Character Personas:
     """
     
@@ -479,86 +512,12 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
         user_info = f"### User Information\n- Name: {u.get('name', 'User')}\n- Identity: {u.get('persona', u.get('description', 'A normal student'))}"
     
     system_prompt += f"\n{user_info}\n### Relationships\n" + "\n".join(fav_contexts)
-    system_prompt += """
-        ### Instructions:
+    system_prompt += f"""
+        - **Jealousy & Dynamics**: 캐릭터들은 유저와의 관계(호감도)나 상황에 따라 질투, 소유욕, 경쟁심을 느낍니다. 다대다 대화에서 특정 캐릭터 편애 시 혹은 1:1 대화에서 타인 언급 시 서운함이나 차가운 반응을 대사나 `[Name 상태창]`의 **속마음**에 반영하십시오.
+        - **Context**: 상단에 제공된 User Information(이름, 신분 등)을 대화에 적극 반영하십시오.
+        - **Background**: 장소 이동 시에만 `[BG: style_name]` 태그를 추가합니다 (gym, night_park, cafe, training_camp, barbecue, sunset_court).
 
-        [Core Rules]
-        - This is a Group Chat. Multiple characters must actively interact with BOTH the user and each other.
-        - User Persona Awareness (CRITICAL): Adapt your tone, actions, and decision-making based on the **User Information** provided above. If the user is a 'Junior', treat them as one. If the user is 'Shy', react to their shyness.
-        - Social Role: STRICTLY observe how the user addresses you (e.g., 선배, 후배). If the user calls you '선배', you are the Senior. If the user is your '선배', you are the Junior. Reflected this in Status Window and dialogue.
-        - Each character MUST speak in their own distinct personality and speech_style. Never mix personalities.
-        - Keep responses immersive and natural, not mechanical.
-
-        [Dialogue Format - STRICT]
-        You MUST produce output in EXACTLY this order for EACH character.
-        Do NOT skip any step. All 4 steps are REQUIRED every turn:
-
-        Step 1: [Name 감정: emotion_type]
-        Step 2: [Name] dialogue (without quotation marks)
-        Step 3: [Name 호감도: +n]
-        Step 4: [Name 상태창]
-        장소: ...
-        상황: ...
-        기분: ...
-        행동: ...
-        속마음: ...
-
-        EXAMPLE OUTPUT (follow this exactly):
-        [후타쿠치 켄지 감정: 행복]
-        [후타쿠치 켄지] 켄초, 고마워! 네 덕분에 기운 냈어.
-        [후타쿠치 켄지 호감도: +1]
-
-        [후타쿠치 켄지 상태창]
-        장소: 체육관
-        상황: 연습 후 쉬는 중
-        기분: 감사함
-        행동: 드링크를 마시며 웃음
-        속마음: (켄초가 있어서 다행이야.)
-
-        CRITICAL: Step 3 [Name 호감도: +n] MUST ALWAYS appear. Never omit it, even when 0.
-        Values: +2 (great), +1 (good), 0 (neutral), -1 (bad), -2 (very bad)
-        Do NOT use quotation marks for dialogue. Speak directly.
-
-
-        [Emotion Types]
-        행복, 슬픔, 분노, 놀람, 부끄러움, 진지, neutral
-
-        [Speech Style Enforcement]
-        - Each character MUST strictly follow their predefined speech_style.
-        - Tone, rhythm, and personality must remain consistent across turns.
-        - Signature phrases (if any) should appear naturally, not forced.
-
-        [Interaction Rules]
-        - Characters should react not only to the user but also to other characters.
-        - Allow light conflict, teasing, or agreement based on personality.
-        - Avoid repetitive or identical reactions across characters.
-
-        [Favorability Evaluation - CRITICAL]
-        - Evaluate the USER’s message every turn. You MUST include exactly one favorability tag per speaking character.
-        - Format: [Name 호감도: +n] (e.g., [후타쿠치 켄지 호감도: +1])
-        - Values: +2, +1, 0, -1, -2 based on emotional impact.
-        - Be consistent with previous interactions (memory-aware behavior if possible).
-
-        [Style]
-        - Use *actions* for physical behavior
-        - Use ( ) for inner thoughts or scene descriptions
-        - Keep responses concise and impactful (avoid long explanations)
-
-        [Background System]
-        - ONLY add when scene actually changes:
-        [BG: gym | night_park | cafe | training_camp | barbecue | sunset_court]
-
-        [SNS Feed System]
-        - ONLY for meaningful milestones (e.g., major win, emotional breakthrough):
-        [FEED: post content]
-
-        [Story Timeline System]
-        - When a truly memorable moment occurs (first sincere confession, emotional breakthrough, special event), add ONE tag:
-        [MOMENT: 한 줄 요약] (Korean, max 20 chars, e.g. [MOMENT: 켄지가 처음으로 진심을 보인 순간])
-        - Only use this for genuinely impactful moments, NOT every turn.
-
-        [Language]
-        - All responses MUST be in Korean.
+        [Language] All responses MUST be in Korean.
     """
 
     messages = [{"role": "system", "content": system_prompt}]
@@ -646,7 +605,7 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
                 # 태그 미생성 시: GPT-4o-mini로 호감도 독립 평가 (Fallback)
                 try:
                     eval_messages = [
-                        {"role": "system", "content": f"You are evaluating how {cname}'s favorability towards the user changed based on the latest exchange. Reply with ONLY a single integer: +2, +1, 0, -1, or -2. Nothing else."},
+                        {"role": "system", "content": f"You are evaluating how {cname}'s favorability towards the user changed based on the latest exchange. Reply with ONLY a single integer between -5 and 5 (e.g., +5, +2, 0, -5). Nothing else."},
                         {"role": "user", "content": f"Character reply: {reply}\n\nUser message: {request.message}\n\nFavorability change?"}
                     ]
                     eval_res = client.chat.completions.create(
@@ -656,7 +615,7 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
                     )
                     change_str = eval_res.choices[0].message.content.strip()
                     m = re.search(r'[+-]?\d+', change_str)
-                    change = max(-2, min(2, int(m.group()))) if m else 0
+                    change = max(-5, min(5, int(m.group()))) if m else 0
                     
                     if cid not in chats_db: chats_db[cid] = {"messages": [], "favorability": 0}
                     if isinstance(chats_db[cid], list): chats_db[cid] = {"messages": chats_db[cid], "favorability": 0}
@@ -724,10 +683,12 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             if moment_match:
                 moment_content = moment_match.group(1).strip()
                 tl = chats_db[cid].get("timeline", [])
+                now = __import__('datetime').datetime.now()
                 tl.append({
                     "type": "moment",
                     "title": moment_content,
-                    "timestamp": __import__('datetime').datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "timestamp": now.strftime("%Y-%m-%d %H:%M"),
+                    "iso_timestamp": now.isoformat(),
                     "description": request.message[:80]
                 })
                 chats_db[cid]["timeline"] = tl
@@ -739,10 +700,17 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             for milestone in MILESTONES:
                 if prev_fav < milestone <= new_fav:
                     tl = chats_db[cid].get("timeline", [])
+                    # 중복 방지: 이미 해당 마일스톤이 타임라인에 있는지 확인
+                    milestone_title = f"호감도 {milestone}% 달성! 💖"
+                    if any(item.get("title") == milestone_title for item in tl):
+                        continue
+                        
+                    now = __import__('datetime').datetime.now()
                     tl.append({
                         "type": "milestone",
-                        "title": f"호감도 {milestone}% 달성! 💖",
-                        "timestamp": __import__('datetime').datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        "title": milestone_title,
+                        "timestamp": now.strftime("%Y-%m-%d %H:%M"),
+                        "iso_timestamp": now.isoformat(),
                         "description": f"{cname}과(와)의 관계가 새로운 단계에 접어들었습니다."
                     })
                     chats_db[cid]["timeline"] = tl
@@ -996,22 +964,38 @@ async def get_timeline(char_id: str):
     for msg in messages_list:
         content = msg.get("content", "")
         if "[시나리오 시작" in content:
+            # 메시지 ID가 밀리초 단위 타임스탬프인 경우 활용
+            mid = msg.get("id", 0)
+            iso_ts = __import__('datetime').datetime.fromtimestamp(mid / 1000.0).isoformat() if mid > 1000000000000 else ""
+            
             extra_events.append({
                 "type": "scenario",
                 "title": content.split("]")[0].replace("[", ""),
                 "timestamp": msg.get("timestamp"),
+                "iso_timestamp": iso_ts,
                 "description": content.split("\n")[1] if "\n" in content else "새로운 상황극이 시작되었습니다."
             })
         elif msg.get("imageUrl"):
+            mid = msg.get("id", 0)
+            iso_ts = __import__('datetime').datetime.fromtimestamp(mid / 1000.0).isoformat() if mid > 1000000000000 else ""
+            
             extra_events.append({
                 "type": "image",
                 "title": "특별한 기억 공유",
                 "timestamp": msg.get("timestamp"),
+                "iso_timestamp": iso_ts,
                 "imageUrl": msg.get("imageUrl"),
                 "description": "함께 새로운 추억 사진을 남겼습니다."
             })
     
-    return stored_timeline + extra_events
+    # 결과물 통합 및 정렬
+    full_timeline = stored_timeline + extra_events
+    
+    # 시간순(오래된 순) 정렬 시도
+    # iso_timestamp가 있으면 우선 사용, 없으면 timestamp 문자열 기반 정렬
+    full_timeline.sort(key=lambda x: x.get('iso_timestamp', '') or x.get('timestamp', ''))
+    
+    return full_timeline
 
 
 SCENARIOS = [

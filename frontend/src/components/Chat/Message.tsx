@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, User } from 'lucide-react';
 
 interface MessageProps {
   content: string;
@@ -42,12 +42,31 @@ const Message: React.FC<MessageProps> = ({
     // [이름] 형식의 태그 추출
     const nameMatch = content.match(/^\[(.*?)\]/);
     const speakerName = nameMatch ? nameMatch[1] : '';
-    const char = activeCharacters.find(c => c.name === speakerName) || activeCharacters[0];
+    const char = activeCharacters.find(c => c.name === speakerName);
     
+    if (char) {
+      return {
+        name: char.name,
+        avatar: char.avatar_url || char.avatarUrl || '/avatar.png',
+        char: char
+      };
+    }
+    
+    // 대화에 참여 중이지 않은 제3의 인물(하나마키 등) 처리
+    if (speakerName) {
+      return {
+        name: speakerName,
+        avatar: 'default_side', // 기본 실루엣 태그
+        char: null
+      };
+    }
+
+    // 기본값 (참여 중인 첫 번째 캐릭터)
+    const fallbackChar = activeCharacters[0];
     return {
-      name: char?.name || 'AI',
-      avatar: char?.avatar_url || char?.avatarUrl || '/avatar.png',
-      char: char
+      name: fallbackChar?.name || 'AI',
+      avatar: fallbackChar?.avatar_url || fallbackChar?.avatarUrl || 'default_side',
+      char: fallbackChar
     };
   };
 
@@ -127,7 +146,13 @@ const Message: React.FC<MessageProps> = ({
             className={`w-9 h-9 rounded-full overflow-hidden border border-white/10 bg-surface ${isAi ? 'cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all' : ''}`}
             onClick={() => isAi && speaker.char && onAvatarClick?.(speaker.char)}
           >
-            <img src={speaker.avatar} className="w-full h-full object-cover" alt="" />
+            {speaker.avatar === 'default_side' ? (
+              <div className="w-full h-full flex items-center justify-center bg-gray-500/20 text-gray-400">
+                <User className="w-5 h-5" />
+              </div>
+            ) : (
+              <img src={speaker.avatar} className="w-full h-full object-cover" alt="" />
+            )}
           </div>
         </div>
       )}
