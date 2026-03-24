@@ -34,8 +34,9 @@ const RelationshipPage = () => {
             const favRes = await fetch(`http://127.0.0.1:8000/chats/${char.id}`);
             if (favRes.ok) {
               const data = await favRes.json();
-              // 대화 내역이 있는 경우에만 포함
-              if (data.messages && data.messages.length > 0) {
+              // 사용자가 보낸 메시지가 최소 하나라도 있는 경우에만 포함
+              const hasUserMessage = data.messages && data.messages.some((m: any) => !m.isAi);
+              if (hasUserMessage) {
                 return {
                   id: char.id,
                   name: char.name,

@@ -427,17 +427,22 @@ async def chat(request: ChatRequest):
         u = user_profiles_db[request.user_profile_index]
         user_info = f"### User Information\n- Name: {u.get('name', 'User')}\n- Identity: {u.get('persona', u.get('description', 'A normal student'))}"
     
-    system_prompt += f"\n{user_info}\n### Relationships\n" + "\n".join(fav_contexts)
     system_prompt += """
     ### Instructions:
     - Group Chat: Characters interact with both user and each other.
     - Identification: Start EACH character speech with [Name]. 
-      Example: [CharA] "Hi!", [CharB] "Hello."
-    - Favorability: Add '[Name 호감도: +n]' (n: -2 to +2) for relevant characters at the end of the message.
+    - Emotion: Use '[Name 감정: emotion_type]' (Options: 행복, 슬픔, 분노, 놀람, 부끄러움, 진지, neutral).
+    - Favorability Evaluation (CRITICAL): 
+      Evaluate the user's message and interaction quality. 
+      You MUST add '[Name 호감도: +n]' (n can be -2, -1, 0, +1, +2) at the end of the response for each character.
+      - +2: Extremely positive, supportive, or deepening relationship.
+      - +1: Generally friendly, interesting, or empathetic.
+      - 0: Neutral or routine interaction.
+      - -1: Slightly annoying, rude, or indifferent.
+      - -2: Critical conflict, insult, or severe trust-breaking.
     - Style: *actions*, (inner thoughts or scene changes).
-    - Background: If the scene or location changes (e.g. going to gym, park, cafe), add '[BG: style_name]' ONLY ONCE at the end. Recommended styles: gym, night_park, cafe, training_camp, barbecue, sunset_court.
-    - Emotion: Use '[Name 감정: emotion_type]' to indicate the current emotion. Options: 행복, 슬픔, 분노, 놀람, 부끄러움, 진지, neutral.
-    - SNS Feed: If a memorable event or high-impact moment occurs, add '[FEED: post content]' in the character's voice at the end. (Auto-post to SNS)
+    - Background: If the scene or location changes, add '[BG: style_name]' (gym, night_park, cafe, training_camp, barbecue, sunset_court).
+    - SNS Feed: Add '[FEED: post content]' only for truly memorable milestones.
     Respond in Korean.
     """
 
@@ -809,10 +814,11 @@ async def observe_chat(id: str, request: ChatRequest):
     modified_history = request.chat_history + [{"role": "system", "content": system_instruction}]
     
     # 기존 chat 엔드포인트 로직 재사용
-    # (실제 대화 로직을 분리하지 않았으므로 직접 전달)
-    return await chat(id, ChatRequest(
+    # (id를 함께 전달하지 않고 ChatRequest에 태워서 보냄)
+    return await chat(ChatRequest(
         message="[관찰 모드: 계속 대화해줘]", 
         chat_history=modified_history,
         user_profile_index=request.user_profile_index,
+        char_id=id,
         char_ids=request.char_ids
     ))

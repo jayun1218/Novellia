@@ -396,16 +396,15 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         const data = await res.json();
         const reply = data.reply;
         
-        const parts = reply.split(/(?=\[.*?\])/g).filter((p: string) => p.trim());
-        const newMessages = parts.map((part: string) => {
-          const nameMatch = part.match(/^\[(.*?)\]/);
-          const name = nameMatch ? nameMatch[1] : activeCharacters[0]?.name;
-          const content = part.replace(/^\[.*?\]/, '').trim();
-          
+        const parts = reply.split(/(?=\[.*?\])/g).filter((p: string) => {
+          // 캐릭터 이름 태그로 시작하고 실질적인 내용이 있는 것만 필터링
+          return p.trim() && /^\[(?!(상태창|FEED|호감도|BG)).*?\]/.test(p);
+        });
+
+        const newMessages = parts.map((part: string, idx: number) => {
           return {
-            id: Date.now() + Math.random(),
-            content,
-            name,
+            id: Date.now() + idx + Math.random(),
+            content: part.trim(), // [이름] 태그를 포함한 전체 내용을 전달
             isAi: true,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           };
