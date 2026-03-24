@@ -214,19 +214,28 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     }
   }, [selectedProfileIndex, userProfiles, id]);
 
+  const lastSavedRef = React.useRef<string>('');
+
   useEffect(() => {
     if (messages.length > 0 && activeCharacters.length > 0) {
       const charId = activeCharacters[0].id || id;
+      const payload = {
+        messages, 
+        // favorability: favorability, // 제거하여 서버측 데이터 보존
+        user_profile_index: selectedProfileIndex,
+        char_ids: activeCharacters.map(c => c.id),
+        settings
+      };
+      
+      const payloadStr = JSON.stringify(payload);
+      if (lastSavedRef.current === payloadStr) return;
+      
       fetch(`http://127.0.0.1:8000/chats/${charId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          messages, 
-          favorability, 
-          user_profile_index: selectedProfileIndex,
-          char_ids: activeCharacters.map(c => c.id),
-          settings
-        }),
+        body: payloadStr,
+      }).then(() => {
+        lastSavedRef.current = payloadStr;
       }).catch(err => console.error('Save error:', err));
     }
   }, [messages, favorability, activeCharacters, id, selectedProfileIndex, settings]);
@@ -258,6 +267,11 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       if (response.ok) {
         const data = await response.json();
         const reply = data.reply;
+        
+        if (!reply) {
+          console.error('No reply from server');
+          return;
+        }
         
         // 배경 변경 태그 추출 및 적용
         const bgMatch = reply.match(/\[BG:\s*(.*?)\]/);

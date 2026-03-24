@@ -52,23 +52,36 @@ const Message: React.FC<MessageProps> = ({
   };
 
   const speaker = getSpeakerInfo();
-
+  
   const parseContent = (text: string) => {
     const statusRegex = /\[(.*?)상태창\]([\s\S]*?)(?=\[|$)/g;
     const statusBlocks: { title: string; content: string }[] = [];
-    let dialogue = text;
+    
+    // 서비스 태그(행동, 배경, 호감도 등) 제거 헬퍼
+    const cleanSystemTags = (t: string) => {
+      return t.replace(/\[.*? 감정:\s*.*?\]/g, "")
+              .replace(/\[BG:\s*.*?\]/g, "")
+              .replace(/\[.*?호감도:\s*[+-]?\d+\]/g, "")
+              .replace(/\[FEED:\s*.*?\]/g, "");
+    };
 
+    // 화자 이름 접두사 제거 헬퍼 (멀티라인 지원)
+    const stripSpeakerPrefix = (t: string) => {
+      return t.split('\n').map(line => line.replace(/^(?:\[.*?\]|.*?[:：])\s*/, "")).join('\n');
+    };
+
+    let dialogue = cleanSystemTags(text);
+    dialogue = dialogue.replace(/"/g, ""); // 모든 큰따옴표 제거
+    
     let match;
-    while ((match = statusRegex.exec(text)) !== null) {
-      statusBlocks.push({ title: match[1].trim() + " 상태창", content: match[2].trim() });
+    const originalText = text;
+    while ((match = statusRegex.exec(originalText)) !== null) {
+      const cleanedStatus = stripSpeakerPrefix(cleanSystemTags(match[2].trim()));
+      statusBlocks.push({ title: match[1].trim() + " 상태창", content: cleanedStatus });
       dialogue = dialogue.replace(match[0], "");
     }
 
-    // 화자 태그 및 서비스 태그 제거 (배경, 감정 등)
-    dialogue = dialogue.replace(/^\[.*?\]\s*/, "")
-                       .replace(/\[BG:\s*.*?\]/g, "")
-                       .replace(/\[.*? 감정:\s*.*?\]/g, "");
-
+    dialogue = stripSpeakerPrefix(dialogue);
     return { dialogue: dialogue.trim(), statusBlocks };
   };
 
@@ -168,12 +181,20 @@ const Message: React.FC<MessageProps> = ({
                     <div key={idx} className="space-y-2.5">
                       <h5 className={`text-[11px] font-black uppercase ${theme === 'basic' ? 'text-white/40' : 'text-black/30'}`}>{block.title}</h5>
                       <div className="space-y-2 pl-1">
-                        {block.content.split('\n').filter(l => l.trim()).map((line, lidx) => (
-                          <div key={lidx} className={`text-[13px] ${theme === 'basic' ? 'text-white/70' : 'text-black/60'} flex items-start gap-2`}>
-                             <span className="mt-1.5 w-1 h-1 rounded-full bg-current opacity-30 flex-shrink-0" />
-                             <span>{line.replace(/^- /, '')}</span>
-                          </div>
-                        ))}
+                        {block.content.split('\n').filter(l => l.trim()).map((line, lidx) => {
+                          const cleanLine = line.replace(/^[*-]\s*/, '');
+                          const categories = ['장소', '상황', '기분', '행동', '속마음'];
+                          
+                          // 이미 콜론이 있으면 그대로 표시, 없으면 순서대로 카테고리 부여
+                          const hasLabel = cleanLine.includes(':') || cleanLine.includes('：');
+                          const displayLine = hasLabel ? cleanLine : `${categories[lidx % categories.length]} : ${cleanLine}`;
+                          
+                          return (
+                            <div key={lidx} className={`text-[13px] ${theme === 'basic' ? 'text-white/70' : 'text-black/60'} flex items-start`}>
+                               <span>{displayLine}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   ))}

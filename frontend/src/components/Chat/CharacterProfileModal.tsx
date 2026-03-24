@@ -60,8 +60,9 @@ const CharacterProfileModal: React.FC<CharacterProfileModalProps> = ({ isOpen, o
         </div>
 
         {/* Profile Info Section */}
-        <div className="relative flex-1 flex flex-col items-center pt-24 pb-8 px-8 z-10 text-center overflow-y-auto custom-scrollbar">
-          {/* Avatar */}
+        <div className="relative flex-1 min-h-0 overflow-y-auto custom-scrollbar z-10">
+          <div className="flex flex-col items-center pt-24 pb-20 px-8 text-center">
+            {/* Avatar */}
           <div className="mb-4 relative group">
             <div className="w-24 h-24 rounded-[32px] overflow-hidden border-2 border-white/20 shadow-2xl bg-surface">
               <img 
@@ -121,7 +122,8 @@ const CharacterProfileModal: React.FC<CharacterProfileModalProps> = ({ isOpen, o
             })}
           </div>
 
-          <div className="h-24" /> {/* Spacer */}
+          <div className="h-48" /> {/* Spacer to allow scrolling past bottom buttons */}
+          </div>
         </div>
 
         {/* Kakao-style Bottom Actions */}
