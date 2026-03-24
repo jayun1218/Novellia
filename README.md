@@ -18,6 +18,10 @@
 - **페르소나 영속 선택 시스템 (Persistence)**: 마지막으로 선택한 페르소나를 기기별로 기억하여, 재접속하거나 이름을 수정해도 설정이 풀리지 않습니다.
 - **실시간 메시지 오토스크롤**: 대화가 길어져도 항상 최신 메시지가 있는 하단으로 자동 이동하여 끊김 없는 대화 흐름을 보장합니다.
 - **영구 보관 AI 갤러리 (Memory Gallery)**: 대화 중 생성된 모든 소중한 순간들을 갤러리 페이지에서 한눈에 확인하고 기기에 저장할 수 있습니다.
+- **🎭 실시간 감정 애니메이션 (Dynamic Expressions)**: AI가 분석한 감정(행복, 분노, 당황 등)에 따라 캐릭터 아바타가 반짝이거나 흔들리는 생동감 넘치는 시각 효과를 제공합니다.
+- **🎨 캐릭터 시그니처 테마 (Signature Themes)**: 민트, 오렌지, 레드 등 캐릭터 고유 색상을 반영한 전용 테마를 제공하여 대화의 몰입감을 극대화합니다.
+- **📊 인터랙티브 관계도 (Relationship Map)**: 나와 캐릭터들 사이의 정서적 거리를 한눈에 볼 수 있는 관계 페이지를 통해 인연의 깊이를 확인하세요.
+- **📂 대화 기반 로어 자동 동기화 (Auto Lore Sync)**: 대화 중에 오간 중요한 설정과 추억을 AI가 스스로 감지하여 로어북에 실시간으로 기록하고 저장합니다.
 - **인공지능 자동 피드 게시**: 캐릭터들이 대화 중의 특별한 사건을 스스로 감지하여 자신의 SNS 피드에 기록하고 공유합니다.
 
 ## 🛠 기술 스택
@@ -25,13 +29,14 @@
 ### Frontend
 - **Framework**: Next.js 16 (App Router)
 - **Styling**: Tailwind CSS v4 (Glassmorphism & Dark Mode)
+- **Animation**: Framer Motion
 - **Icons**: Lucide React
 - **Persistence**: LocalStorage 기반 세션 유지
 
 ### Backend
 - **Framework**: FastAPI (Python)
-- **AI Engine**: OpenAI GPT-4o (Chat/Reasoning), GPT-4o-mini (Summarization), DALL-E 3 (Image Engine)
-- **Logic**: 실시간 장기 기억 요약, 호감도 추론 및 AI 페르소나 설계 엔진
+- **AI Engine**: OpenAI GPT-4o (Chat/Reasoning), GPT-4o-mini (Summarization/Lore Extraction), DALL-E 3 (Image Engine)
+- **Logic**: 실시간 장기 기억 요약, 호감도 추론, AI 페르소나 설계 및 로어 동기화 엔진
 
 ---
 
@@ -68,6 +73,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 5. **Phase 5: 장기 메모리 & 소셜 확장** - 대화 요약 회상 시스템 및 공개 캐릭터 검색 기능 (✅ 완료)
 6. **Phase 6: Novellia 월드 Giga 확장** - 멀티 캐릭터 채팅, 유저 페르소나, 갤러리 및 자동 피드 연동 (✅ 완료)
 7. **Phase 7: 사용자 경험 고도화** - AI 페르소나 자동 설계, 스토리 타임라인, 영속성 시스템 및 비주얼 정합성 강화 (✅ 완료)
+8. **Phase 8: 프리미엄 경험 확장** - 실시간 감정 애니메이션, 고유 테마, 관계도 시각화 및 로어 자동 동기화 (✅ 완료)
 
 ---
 **Novellia** - *당신의 상상이 현실이 되는 첫 번째 페이지.*
