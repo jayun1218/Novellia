@@ -18,38 +18,40 @@ const RelationshipPage = () => {
         const charRes = await fetch('http://127.0.0.1:8000/characters');
         const popularRes = await fetch('http://127.0.0.1:8000/popular-characters');
         
-        let allChars = [];
-        if (charRes.ok) allChars.push(...(await charRes.json()));
+        let allChars: any[] = [];
+        if (charRes.ok) {
+            const userChars = await charRes.json();
+            allChars.push(...userChars.map((c: any, idx: number) => ({ ...c, id: `my-${idx}` })));
+        }
         if (popularRes.ok) {
             const popularData = await popularRes.json();
             allChars.push(...Object.entries(popularData).map(([id, data]: [string, any]) => ({ id, ...data })));
         }
 
-        // 2. 각 캐릭터의 호감도 정보 가져오기
+        // 2. 각 캐릭터의 호감도 정보 가져오기 및 대화 여부 확인
         const charWithFavs = await Promise.all(allChars.map(async (char) => {
           try {
             const favRes = await fetch(`http://127.0.0.1:8000/chats/${char.id}`);
             if (favRes.ok) {
               const data = await favRes.json();
-              return {
-                id: char.id,
-                name: char.name,
-                avatar: char.avatar_url || char.avatarUrl || '/avatar.png',
-                favorability: data.favorability || 0
-              };
+              // 대화 내역이 있는 경우에만 포함
+              if (data.messages && data.messages.length > 0) {
+                return {
+                  id: char.id,
+                  name: char.name,
+                  avatar: char.avatar_url || char.avatarUrl || '/avatar.png',
+                  favorability: data.favorability || 0,
+                  hasHistory: true
+                };
+              }
             }
           } catch (e) {
             console.error(`Error fetching fav for ${char.id}:`, e);
           }
-          return {
-            id: char.id,
-            name: char.name,
-            avatar: char.avatar_url || char.avatarUrl || '/avatar.png',
-            favorability: 0
-          };
+          return null;
         }));
 
-        setCharacters(charWithFavs.sort((a, b) => b.favorability - a.favorability));
+        setCharacters(charWithFavs.filter(c => c !== null).sort((a, b) => b.favorability - a.favorability));
         setLoading(false);
       } catch (err) {
         console.error('Failed to fetch relationships:', err);

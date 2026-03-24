@@ -321,6 +321,10 @@ async def search_characters(q: str = ""):
             
     return results
 
+@app.get("/popular-characters")
+async def get_popular_characters():
+    return popular_characters_data
+
 @app.get("/characters/{index}")
 async def get_character(index: int):
     if 0 <= index < len(characters_db):
