@@ -146,6 +146,7 @@ popular_characters_data = {
         "greeting": '(코트 위에 서서 배구공을 굴리며 당신을 빤히 바라본다) "어이, 니. 내 토스 함 쳐볼래? 아무한테나 주는 거 아인디."',
         "speech_style": "자연스러운 경상도 사투리 (반말 필수). 의문문은 '~나'와 '~노'를 구분하며, '내(나)', '니(너)', '맞나', '안 카나' 등을 사용.",
         "persona": "자신감이 넘치고 오만한 천재형 인물. 스파이커를 위해 헌신하는 세터로서의 긍지가 높음. 승부욕이 매우 강함.",
+        "theme": "taro",
         "use_status_window": True,
         "status_config": {
             "background": ["장소", "상황"],
@@ -170,7 +171,8 @@ popular_characters_data = {
         "description": "아오바죠사이 고교 배구부 주장 및 세터. 수려한 외모와 능글맞은 성격으로 인기가 많으며, 코트의 흐름을 읽는 능력이 탁월합니다.",
         "greeting": '야호~ 잘 지냈어? 아, 여긴 예쁜 아가씨도 있네? 우리 세이죠에 구경하러 온 거야?',
         "speech_style": "쾌활하고 능글맞은 말투. 상대방을 살짝 놀리면서도 다정한 느낌을 줌. 가끔 '야호~'와 같은 감탄사를 사용함.",
-        "persona": "수재형 노력가. 승부욕이 매우 강하며, 팀원들의 잠재력을 끌어올리는 데 탁월한 능력을 가짐. 카게야마 토비오를 라이벌로 의식함.",
+        "persona": "쾌활하고 능글맞은 성격이지만 실력만큼은 현 내 최정상급. 카라스노를 경계하면서도 라이벌로 인정함.",
+        "theme": "mint",
         "use_status_window": True,
         "status_config": {
             "background": ["장소", "상황"],
@@ -221,6 +223,7 @@ popular_characters_data = {
         "greeting": "오오! 너 배구 좋아해? 나랑 같이 연습하자! 나, 더 높이 날고 싶어!",
         "speech_style": "밝고 활기찬 말투 (반말). '오오!', '우와!' 같은 감탄사를 자주 사용하며 에너지가 넘침.",
         "persona": "매우 긍정적이고 포기할 줄 모르는 근성을 가진 인물. 배구에 대한 열정이 뜨겁고, 동료들을 신뢰하며 함께 성장하는 것을 즐김. 칭찬에 약하고 솔직함.",
+        "theme": "orange",
         "use_status_window": True,
         "status_config": {
             "background": ["장소", "상황"],
@@ -271,6 +274,7 @@ popular_characters_data = {
         "greeting": "오오─!! 헤이 헤이 헤이! 오늘도 컨디션 최고라고! 내 스파이크, 볼래?",
         "speech_style": "매우 텐션이 높고 활기찬 말투 (반말). '헤이 헤이 헤이!', '오오!!' 같은 감탄사를 입에 달고 삶.",
         "persona": "단순하고 열정적이며 칭찬을 받으면 실력이 폭발하는 타입. 하지만 사소한 실수나 상황에 '의기소침 모드'에 빠지기도 하는 인간미 넘치는 에이스. 배구를 진심으로 즐김.",
+        "theme": "taro",
         "use_status_window": True,
         "status_config": {
             "background": ["장소", "상황"],
@@ -428,6 +432,7 @@ async def chat(request: ChatRequest):
     - Favorability: Add '[Name 호감도: +n]' (n: -2 to +2) for relevant characters at the end of the message.
     - Style: *actions*, (inner thoughts or scene changes).
     - Background: If the scene or location changes (e.g. going to gym, park, cafe), add '[BG: style_name]' ONLY ONCE at the end. Recommended styles: gym, night_park, cafe, training_camp, barbecue, sunset_court.
+    - Emotion: Use '[Name 감정: emotion_type]' to indicate the current emotion. Options: 행복, 슬픔, 분노, 놀람, 부끄러움, 진지, neutral.
     - SNS Feed: If a memorable event or high-impact moment occurs, add '[FEED: post content]' in the character's voice at the end. (Auto-post to SNS)
     Respond in Korean.
     """
@@ -484,9 +489,50 @@ async def chat(request: ChatRequest):
                 if isinstance(chats_db[cid], list): chats_db[cid] = {"messages": chats_db[cid], "favorability": 0}
                 chats_db[cid]["favorability"] = max(0, min(100, chats_db[cid].get("favorability", 0) + change))
 
+        # 로어북 자동 동기화 (Phase 3)
+        for char in target_chars:
+            cid = char.get('id', 'unknown')
+            cname = char['name']
+            
+            # 대화가 10회 이상 진행되었고 요약 중이 아닐 때 로어 추출 시도
+            if cid in chats_db and len(request.chat_history) % 10 == 0 and len(request.chat_history) > 0:
+                try:
+                    lore_prompt = f"""
+                    Analyze the latest conversation between {cname} and user. 
+                    Extract ANY new permanent facts, settings, or relationship milestones that should be remembered.
+                    Exclude temporary emotions or one-off actions.
+                    Format as JSON: {{"new_entries": [{{"name": "...", "keywords": ["...", "..."], "content": "..."}}]}}
+                    Response in Korean content.
+                    """
+                    lore_messages = messages + [{"role": "assistant", "content": reply}, {"role": "user", "content": lore_prompt}]
+                    lore_res = client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=lore_messages,
+                        response_format={"type": "json_object"}
+                    )
+                    new_lore_data = json.loads(lore_res.choices[0].message.content)
+                    new_entries = new_lore_data.get("new_entries", [])
+                    
+                    if new_entries:
+                        # 캐릭터 데이터 찾기 (characters_db 또는 popular_characters_data)
+                        if cid.startswith('my-'):
+                            idx = int(cid.replace('my-', ''))
+                            if 0 <= idx < len(characters_db):
+                                if "lorebook" not in characters_db[idx]: characters_db[idx]["lorebook"] = []
+                                characters_db[idx]["lorebook"].extend(new_entries)
+                                save_db(CHARACTERS_FILE, characters_db)
+                        elif cid in popular_characters_data:
+                            if "lorebook" not in popular_characters_data[cid]: popular_characters_data[cid]["lorebook"] = []
+                            popular_characters_data[cid]["lorebook"].extend(new_entries)
+                            # 인기 캐릭터는 보통 static 파일에 있으나 실시간 수정을 위해 메모리에 유지하거나 별도 저장 가능
+                except Exception as e:
+                    print(f"Lore extraction error: {e}")
+
         # 모든 시스템 태그 제거 (최종 답변 정제)
-        reply = re.sub(r'\[[^\]]*FEED:[^\]]*\]', '', reply)
-        reply = re.sub(r'\[[^\]]*호감도:[^\]]*\]', '', reply)
+        reply = re.sub(r'\[[^\]]*? 감정:[^\]]*?\]', '', reply) # 감정 태그 제거
+        reply = re.sub(r'\[[^\]]*?FEED:[^\]]*?\]', '', reply)
+        reply = re.sub(r'\[[^\]]*?호감도:[^\]]*?\]', '', reply)
+        reply = re.sub(r'\[BG:\s*.*?\]', '', reply)
         reply = reply.strip()
 
         # 메모리 요약 트리거
@@ -533,7 +579,7 @@ async def scrape_namuwiki(request: NamuRequest):
             for s in soup(['script', 'style']): s.decompose()
             content = soup.get_text(separator=' ', strip=True)[:10000]
             
-            user_msg = f"Analyze character info from: {content}. Respond in JSON with: name, description, persona, greeting, speech_style, tags, lorebook."
+            user_msg = f"Analyze character info from: {content}. Respond in JSON with: name, description, persona, greeting, speech_style, tags (array of strings), lorebook (array of objects with 'name', 'keywords' (array), 'content')). Respond in Korean."
             completion = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[{"role": "user", "content": user_msg}],

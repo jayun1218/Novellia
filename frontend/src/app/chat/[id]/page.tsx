@@ -27,7 +27,8 @@ const popularCharacters: Record<string, any> = {
     coverUrl: 'http://127.0.0.1:8000/uploads/oikawa_cover.png',
     description: "아오바죠사이 고교 배구부 주장 및 세터. 현 내 최정상급 실력을 가진 천재형 노력가. 쾌활하고 능글맞은 성격이지만 코트 위에서는 누구보다 냉정하고 날카롭습니다.",
     greeting: '야호~ 잘 지냈어? 아, 여긴 예쁜 아가씨도 있네? 우리 세이죠에 구경하러 온 거야?',
-    recommended_personas: ["세이죠의 엄격한 매니저", "토오루의 소꿉친구", "카라스노의 천재 후배"]
+    recommended_personas: ["세이죠의 엄격한 매니저", "토오루의 소꿉친구", "카라스노의 천재 후배"],
+    theme: 'mint'
   },
   'ma6': {
     name: '우시지마 와카토시',
@@ -43,7 +44,8 @@ const popularCharacters: Record<string, any> = {
     coverUrl: 'http://127.0.0.1:8000/uploads/hinata_cover.png',
     description: "카라스노 고교 배구부의 미들 블로커. 작은 체구에도 불구하고 압도적인 점프력과 스피드로 코트를 가르는 '작은 거인'입니다.",
     greeting: '오오! 너 배구 좋아해? 나랑 같이 연습하자! 나, 더 높이 날고 싶어!',
-    recommended_personas: ["카라스노 동기 매니저", "히나타를 동경하는 후배", "점심 같이 먹는 친구"]
+    recommended_personas: ["카라스노 동기 매니저", "히나타를 동경하는 후배", "점심 같이 먹는 친구"],
+    theme: 'orange'
   },
   'ma8': {
     name: '후타쿠치 켄지',
@@ -76,6 +78,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const [activeCharacters, setActiveCharacters] = useState<any[]>([]);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [selectedCharacter, setSelectedCharacter] = useState<any>(null);
+  const [characterEmotions, setCharacterEmotions] = useState<Record<string, string>>({}); // 캐릭터별 감정 상태
   const [messages, setMessages] = useState<any[]>([]);
   const [userProfiles, setUserProfiles] = useState<any[]>([]);
   const [selectedProfileIndex, setSelectedProfileIndex] = useState<number>(0);
@@ -175,12 +178,20 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         if (finalChars.length > 0) {
           setActiveCharacters(finalChars);
           setSelectedCharacter(finalChars[0]);
+          
+          // 캐릭터 테마가 있으면 자동 적용 (기본 테마일 때만)
+          if (finalChars[0].theme && settings.theme === 'basic') {
+            setSettings(prev => ({ ...prev, theme: finalChars[0].theme }));
+          }
         }
 
         if (chatData && chatData.messages && chatData.messages.length > 0) {
           setMessages(chatData.messages);
           setFavorability(chatData.favorability || 0);
           setSelectedProfileIndex(chatData.user_profile_index || 0);
+          if (chatData.settings) {
+            setSettings(chatData.settings);
+          }
         } else if (finalChars.length > 0) {
           setMessages([{
             id: Date.now(),
@@ -213,11 +224,12 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           messages, 
           favorability, 
           user_profile_index: selectedProfileIndex,
-          char_ids: activeCharacters.map(c => c.id)
+          char_ids: activeCharacters.map(c => c.id),
+          settings
         }),
       }).catch(err => console.error('Save error:', err));
     }
-  }, [messages, favorability, activeCharacters, id, selectedProfileIndex]);
+  }, [messages, favorability, activeCharacters, id, selectedProfileIndex, settings]);
 
   const handleSend = async (text: string) => {
     if (!text.trim()) return;
@@ -253,6 +265,17 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           const style = bgMatch[1].trim();
           if (BACKGROUNDS[style]) setBgUrl(BACKGROUNDS[style]);
         }
+
+        // 감정 태그 추출 및 적용
+        const emotionMatches = reply.matchAll(/\[(.*?)\s*감정:\s*(.*?)\]/g);
+        const newEmotions = { ...characterEmotions };
+        for (const match of emotionMatches) {
+          const charName = match[1];
+          const emotion = match[2];
+          const charObj = activeCharacters.find(c => c.name === charName);
+          if (charObj) newEmotions[charObj.id] = emotion;
+        }
+        setCharacterEmotions(newEmotions);
 
         // 멀티 캐릭터 답변 분리 로직 복구
         const parts = reply.trim().split(/(\[(?![^\]]*?(?:상태창|FEED|호감도|BG))[^\]]+\])/).filter(Boolean);
@@ -396,6 +419,17 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           const style = bgMatch[1].trim();
           if (BACKGROUNDS[style]) setBgUrl(BACKGROUNDS[style]);
         }
+
+        // 감정 태그 추출 및 적용 (관찰 모드)
+        const emotionMatches = reply.matchAll(/\[(.*?)\s*감정:\s*(.*?)\]/g);
+        const newEmotions = { ...characterEmotions };
+        for (const match of emotionMatches) {
+          const charName = match[1];
+          const emotion = match[2];
+          const charObj = activeCharacters.find(c => c.name === charName);
+          if (charObj) newEmotions[charObj.id] = emotion;
+        }
+        setCharacterEmotions(newEmotions);
       }
     } catch (err) {
       console.error('Observation failed:', err);
@@ -531,9 +565,10 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         onOpenTimeline={handleOpenTimeline}
         recommendedPersonas={activeCharacters[0]?.recommended_personas}
         onApplyPersona={handleApplyPersona}
+        characterEmotions={characterEmotions}
       />
 
-      <div className="flex-1 max-w-4xl mx-auto w-full px-4 pb-32">
+      <div className="flex-1 max-w-4xl mx-auto w-full px-4 pt-12 pb-32">
         <div className="space-y-2">
           {messages.map((message) => (
             <Message 

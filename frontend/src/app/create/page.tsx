@@ -244,7 +244,7 @@ const CreateCharacterPage = () => {
           greeting: data.greeting || prev.greeting,
           speech_style: data.speech_style || prev.speech_style,
           tags: data.tags ? [...new Set([...prev.tags, ...data.tags.map((t: string) => t.replace('#', ''))])] : prev.tags,
-          lorebook: data.lorebook || prev.lorebook,
+          lorebook: Array.isArray(data.lorebook) ? data.lorebook : prev.lorebook,
         }));
         alert('나무위키 정보로 캐릭터가 마법처럼 채워졌습니다! ✨');
       } else {
@@ -553,7 +553,7 @@ const CreateCharacterPage = () => {
           </div>
           {/* Lore List */}
           <div className="space-y-4">
-            {formData.lorebook.map((entry, index) => (
+            {(formData.lorebook || []).map((entry, index) => (
               <div key={index} className="bg-surface border border-white/5 p-4 rounded-2xl relative group">
                 <button 
                   onClick={() => removeLoreEntry(index)}

@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, PlusCircle, Compass, User, LayoutGrid } from 'lucide-react';
+import { Home, PlusCircle, Compass, User, LayoutGrid, Users } from 'lucide-react';
 
 const BottomNav = () => {
   const pathname = usePathname();
@@ -11,6 +11,7 @@ const BottomNav = () => {
   const navItems = [
     { href: '/', icon: Home, label: '홈' },
     { href: '/feed', icon: Compass, label: '피드' },
+    { href: '/relationships', icon: Users, label: '인연' },
     { href: '/gallery', icon: LayoutGrid, label: '갤러리' },
     { href: '/create', icon: PlusCircle, label: '생성' },
     { href: '/profiles', icon: User, label: '마이' },

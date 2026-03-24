@@ -64,8 +64,10 @@ const Message: React.FC<MessageProps> = ({
       dialogue = dialogue.replace(match[0], "");
     }
 
-    // 화자 태그 및 배경 태그 제거
-    dialogue = dialogue.replace(/^\[.*?\]\s*/, "").replace(/\[BG:\s*.*?\]/g, "");
+    // 화자 태그 및 서비스 태그 제거 (배경, 감정 등)
+    dialogue = dialogue.replace(/^\[.*?\]\s*/, "")
+                       .replace(/\[BG:\s*.*?\]/g, "")
+                       .replace(/\[.*? 감정:\s*.*?\]/g, "");
 
     return { dialogue: dialogue.trim(), statusBlocks };
   };
@@ -79,6 +81,9 @@ const Message: React.FC<MessageProps> = ({
       if ((part.startsWith('*') && part.endsWith('*')) || (part.startsWith('(') && part.endsWith(')'))) {
         let actionColor = isAi ? 'text-primary' : 'text-white/60';
         if (theme === 'oreo' || theme === 'taro') actionColor = isAi ? 'text-gray-500' : 'text-black/40';
+        if (theme === 'mint') actionColor = isAi ? 'text-[#40916C]' : 'text-white/70';
+        if (theme === 'orange') actionColor = isAi ? 'text-[#D48806]' : 'text-white/70';
+        if (theme === 'red') actionColor = isAi ? 'text-[#C53030]' : 'text-white/70';
         return <span key={i} className={`${actionColor} italic font-normal`}>{part}</span>;
       }
       return part;
@@ -88,10 +93,16 @@ const Message: React.FC<MessageProps> = ({
   const getBubbleStyle = () => {
     if (isAi) {
       if (theme === 'oreo' || theme === 'taro') return 'bg-white text-black border border-black/5 shadow-sm';
+      if (theme === 'mint') return 'bg-[#F0F9F6] text-[#2D6A4F] border border-[#94D2BD]/30';
+      if (theme === 'orange') return 'bg-[#FFF8F0] text-[#D48806] border border-[#FF9F1C]/30';
+      if (theme === 'red') return 'bg-[#FFF5F5] text-[#C53030] border border-[#E63946]/30';
       return 'bg-surface text-gray-100 border border-white/10';
     }
     if (theme === 'oreo') return 'bg-[#222124] text-white';
     if (theme === 'taro') return 'bg-[#C8B6FF] text-black';
+    if (theme === 'mint') return 'bg-[#94D2BD] text-white shadow-md';
+    if (theme === 'orange') return 'bg-[#FF9F1C] text-white shadow-md';
+    if (theme === 'red') return 'bg-[#E63946] text-white shadow-md shadow-red-500/20';
     return 'bg-primary text-white shadow-md';
   };
 
@@ -155,10 +166,10 @@ const Message: React.FC<MessageProps> = ({
 
                   {statusBlocks.map((block, idx) => (
                     <div key={idx} className="space-y-2.5">
-                      <h5 className="text-[11px] font-black uppercase text-white/40">{block.title}</h5>
+                      <h5 className={`text-[11px] font-black uppercase ${theme === 'basic' ? 'text-white/40' : 'text-black/30'}`}>{block.title}</h5>
                       <div className="space-y-2 pl-1">
                         {block.content.split('\n').filter(l => l.trim()).map((line, lidx) => (
-                          <div key={lidx} className="text-[13px] text-white/70 flex items-start gap-2">
+                          <div key={lidx} className={`text-[13px] ${theme === 'basic' ? 'text-white/70' : 'text-black/60'} flex items-start gap-2`}>
                              <span className="mt-1.5 w-1 h-1 rounded-full bg-current opacity-30 flex-shrink-0" />
                              <span>{line.replace(/^- /, '')}</span>
                           </div>

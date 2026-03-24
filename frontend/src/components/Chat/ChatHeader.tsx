@@ -22,6 +22,7 @@ interface ChatHeaderProps {
   onAvatarClick: (char: any) => void;
   onOpenScenarios: () => void;
   onOpenTimeline: () => void;
+  characterEmotions?: Record<string, string>;
   recommendedPersonas?: string[];
   onApplyPersona?: (persona: string) => void;
 }
@@ -38,6 +39,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
   onAvatarClick,
   onOpenScenarios,
   onOpenTimeline,
+  characterEmotions = {},
   recommendedPersonas = [],
   onApplyPersona
 }) => {
@@ -71,6 +73,9 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
     { id: 'basic', name: '기본', color: 'bg-primary' },
     { id: 'oreo', name: '오레오', color: 'bg-white' },
     { id: 'taro', name: '타로', color: 'bg-[#C8B6FF]' },
+    { id: 'mint', name: '세이죠 민트', color: 'bg-[#94D2BD]' },
+    { id: 'orange', name: '카라스노 귤', color: 'bg-[#FF9F1C]' },
+    { id: 'red', name: '네코마 레드', color: 'bg-[#E63946]' },
   ];
 
   const toggleSetting = (key: keyof ChatSettings) => {
@@ -81,8 +86,31 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
     ? `${activeCharacters[0].name} 외 ${activeCharacters.length - 1}명`
     : activeCharacters[0]?.name || 'Chat';
 
+  const getEmotionEffect = (charId: string) => {
+    const emotion = characterEmotions[charId];
+    if (!emotion) return '';
+    switch (emotion) {
+      case '행복': return 'ring-4 ring-yellow-400 animate-pulse scale-110';
+      case '슬픔': return 'opacity-80 grayscale-[0.3] brightness-90 animate-bounce';
+      case '분노': return 'ring-4 ring-red-600 animate-shake scale-105';
+      case '놀람': return 'scale-115 ring-2 ring-white animate-ping-once';
+      case '부끄러움': return 'ring-4 ring-pink-400 opacity-90';
+      case '진지': return 'brightness-110 contrast-125';
+      default: return '';
+    }
+  };
+
   return (
     <div className="glass fixed top-0 w-full z-50 border-b border-white/5">
+      <style jsx global>{`
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-2px); }
+          75% { transform: translateX(2px); }
+        }
+        .animate-shake { animation: shake 0.2s ease-in-out infinite; }
+        .animate-ping-once { animation: ping 1s cubic-bezier(0, 0, 0.2, 1) 1; }
+      `}</style>
       <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
         {/* Left Section: Back button & Character info */}
         <div className="flex items-center gap-3 overflow-hidden min-w-0 flex-1">
@@ -92,12 +120,12 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
           
           <div className="flex items-center gap-3 min-w-0">
             {/* Multi-Avatar Group */}
-            <div className="flex -space-x-3 overflow-hidden flex-shrink-0">
+            <div className="flex -space-x-3 overflow-hidden flex-shrink-0 p-1">
               {activeCharacters.map((char, i) => (
                 <div 
                   key={char.id || i}
                   onClick={() => onAvatarClick(char)}
-                  className="relative cursor-pointer hover:z-10 transition-transform hover:scale-110 active:scale-95"
+                  className={`relative cursor-pointer hover:z-10 transition-all duration-300 hover:scale-110 active:scale-95 ${getEmotionEffect(char.id)}`}
                 >
                   <img 
                     src={char.avatar_url || char.avatarUrl || '/avatar.png'} 
