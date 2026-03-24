@@ -5,12 +5,15 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, PlusCircle, Compass, User, LayoutGrid, Users } from 'lucide-react';
 
+import { useNotificationStore } from '@/store/useNotificationStore';
+
 const BottomNav = () => {
   const pathname = usePathname();
+  const { hasNewFeed } = useNotificationStore();
 
   const navItems = [
     { href: '/', icon: Home, label: '홈' },
-    { href: '/feed', icon: Compass, label: '피드' },
+    { href: '/feed', icon: Compass, label: '피드', hasBadge: hasNewFeed },
     { href: '/relationships', icon: Users, label: '인연' },
     { href: '/gallery', icon: LayoutGrid, label: '갤러리' },
     { href: '/create', icon: PlusCircle, label: '생성' },
@@ -25,11 +28,16 @@ const BottomNav = () => {
           <Link 
             key={item.href}
             href={item.href} 
-            className={`flex flex-col items-center gap-1 transition-colors ${
+            className={`relative flex flex-col items-center gap-1 transition-colors ${
               isActive ? 'text-primary' : 'text-gray-500 hover:text-white'
             }`}
           >
-            <item.icon className="w-6 h-6" />
+            <div className="relative">
+              <item.icon className="w-6 h-6" />
+              {item.hasBadge && (
+                <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-background" />
+              )}
+            </div>
             <span className="text-[10px] font-medium">{item.label}</span>
           </Link>
         );
@@ -37,5 +45,6 @@ const BottomNav = () => {
     </nav>
   );
 };
+
 
 export default BottomNav;

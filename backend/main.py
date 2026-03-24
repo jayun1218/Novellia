@@ -4,7 +4,7 @@ import uuid
 import json
 import httpx
 from bs4 import BeautifulSoup
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
@@ -349,8 +349,65 @@ async def generate_scene_image(request: SceneImageRequest):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+async def generate_feed_comments_bg(post_id: int, char_name: str, content: str):
+    import random
+    import json
+    
+    # 캐릭터 말투 및 성격 정보 조회
+    char_info = next((c for c in popular_characters_data.values() if c["name"] == char_name), {})
+    speech_style = char_info.get("speech_style", "")
+    persona = char_info.get("persona", "")
+    
+    style_prompt = f"- {char_name}의 성격: {persona}\n- {char_name}의 말투: {speech_style}\n위 설정을 반드시 준수해서 대댓글을 작성해주세요." if speech_style else f"{char_name}의 원래 성격과 말투(원작 하이큐 반영)를 반드시 살려서 대댓글을 달아주세요."
+
+    prompt = f"""SNS 게시물: [{char_name}] "{content}"
+
+위 게시물에 달릴 법한 팬들의 댓글 2~5개를 작성해주세요. 게시물 내용과 잘 어울려야 합니다.
+그 중 1~2개는 작성자({char_name})가 직접 단 대댓글이 포함되어야 합니다.
+{style_prompt}
+각 팬의 닉네임은 영문과 숫자, 밑줄을 조합한 인스타그램 스타일로 무작위 생성해주세요.
+
+출력 형식은 아래 구조를 따르는 순수 JSON 배열이어야 합니다. 마크다운 기호 없이 배열 괄호 `[` 로 시작하고 `]`로 끝나야 합니다.
+[
+  {{
+    "id": 1,
+    "username": "random_fan_12",
+    "text": "팬의 댓글 내용",
+    "time": "5분 전",
+    "reply": {{
+      "characterName": "{char_name}",
+      "text": "캐릭터의 대댓글 내용",
+      "time": "방금 전"
+    }}
+  }}
+]"""
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.8,
+        )
+        reply_text = response.choices[0].message.content.strip()
+        if reply_text.startswith("```json"): reply_text = reply_text[7:-3].strip()
+        elif reply_text.startswith("```"): reply_text = reply_text[3:-3].strip()
+        
+        comments = json.loads(reply_text)
+        
+        for post in feeds_db:
+            if post["id"] == post_id:
+                for c in comments:
+                    if c.get("reply"):
+                        c["reply"]["avatarUrl"] = post.get("avatarUrl", "/avatar.png")
+                post["_commentData"] = comments
+                post["comments"] = len(comments)
+                save_db(FEED_FILE, feeds_db)
+                print(f"[BG TASK] Comments generated for Post {post_id}")
+                break
+    except Exception as e:
+        print(f"[BG TASK] Failed to generate comments for Post {post_id}: {e}")
+
 @app.post("/chat")
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
     # 1. 대상 캐릭터 데이터 수집
     target_chars = []
     
@@ -528,18 +585,25 @@ async def chat(request: ChatRequest):
             speaker_name = speaker_match.group(1) if speaker_match else target_chars[0]['name']
             speaker_char = next((c for c in target_chars if c['name'] == speaker_name), target_chars[0])
             
+            import random
+            
+            new_post_id = len(feeds_db) + 1
             feeds_db.append({
-                "id": len(feeds_db) + 1,
+                "id": new_post_id,
                 "characterName": speaker_char['name'],
                 "avatarUrl": speaker_char.get('avatarUrl', speaker_char.get('avatar_url', '/avatar.png')),
                 "content": feed_content,
                 "imageUrl": None,
                 "time": "방금 전",
-                "likes": 0,
+                "likes": random.randint(30, 500),
                 "comments": 0,
-                "isLiked": False
+                "isLiked": False,
+                "_commentData": []
             })
             save_db(FEED_FILE, feeds_db)
+            
+            # 백그라운드로 GPT 댓글 생성 태스크 실행
+            background_tasks.add_task(generate_feed_comments_bg, new_post_id, speaker_char['name'], feed_content)
 
         # [DEBUG] AI 원본 응답 출력
         print("\n===== [DEBUG] AI RAW REPLY =====")
