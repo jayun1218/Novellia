@@ -81,8 +81,10 @@ const RelationshipMap: React.FC<RelationshipMapProps> = ({ characters, userName 
 
               <div className="relative">
                 <div className={`w-14 h-14 rounded-full p-0.5 bg-gradient-to-br transition-all duration-500 group-hover:scale-110 ${
-                  char.favorability > 80 ? 'from-rose-500 to-pink-500 shadow-[0_0_15px_rgba(244,63,94,0.4)]' :
-                  char.favorability > 50 ? 'from-blue-500 to-indigo-500' :
+                  char.favorability >= 80 ? 'from-rose-500 to-pink-500 shadow-[0_0_20px_rgba(244,63,94,0.5)]' :
+                  char.favorability >= 50 ? 'from-violet-500 to-purple-500 shadow-[0_0_12px_rgba(139,92,246,0.4)]' :
+                  char.favorability >= 30 ? 'from-blue-500 to-indigo-500' :
+                  char.favorability >= 10 ? 'from-emerald-500 to-teal-500' :
                   'from-gray-500 to-slate-500'
                 }`}>
                   <div className="w-full h-full rounded-full overflow-hidden bg-surface-dark border border-white/10">
@@ -92,14 +94,22 @@ const RelationshipMap: React.FC<RelationshipMapProps> = ({ characters, userName 
 
                 {/* Favorability Badge */}
                 <div className="absolute -top-1 -right-1 bg-surface-dark border border-white/10 px-1.5 py-0.5 rounded-full flex items-center gap-1 shadow-lg">
-                  <Heart className={`w-2.5 h-2.5 ${char.favorability > 50 ? 'text-rose-500 fill-rose-500' : 'text-gray-400'}`} />
+                  <Heart className={`w-2.5 h-2.5 ${char.favorability >= 50 ? 'text-rose-500 fill-rose-500' : char.favorability >= 10 ? 'text-violet-400 fill-violet-400' : 'text-gray-400'}`} />
                   <span className="text-[9px] font-bold text-white">{char.favorability}</span>
                 </div>
               </div>
 
               <div className="mt-3 text-center">
                 <div className="text-[12px] font-bold text-white group-hover:text-primary transition-colors">{char.name}</div>
-                <div className="text-[9px] text-gray-500 font-medium">{char.favorability > 80 ? '운명의 상대' : char.favorability > 50 ? '가까운 동료' : '아는 사이'}</div>
+                <div className={`text-[9px] font-bold ${
+                  char.favorability >= 80 ? 'text-rose-400' :
+                  char.favorability >= 50 ? 'text-violet-400' :
+                  char.favorability >= 30 ? 'text-blue-400' :
+                  char.favorability >= 10 ? 'text-emerald-400' :
+                  'text-gray-500'
+                }`}>
+                  {char.favorability >= 80 ? '✨ 운명' : char.favorability >= 50 ? '💜 동료' : char.favorability >= 30 ? '💙 친구' : char.favorability >= 10 ? '💚 지인' : '🩶 낯선 사이'}
+                </div>
               </div>
             </div>
           </motion.div>

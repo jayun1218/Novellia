@@ -495,6 +495,11 @@ async def chat(request: ChatRequest):
         - ONLY for meaningful milestones (e.g., major win, emotional breakthrough):
         [FEED: post content]
 
+        [Story Timeline System]
+        - When a truly memorable moment occurs (first sincere confession, emotional breakthrough, special event), add ONE tag:
+        [MOMENT: 한 줄 요약] (Korean, max 20 chars, e.g. [MOMENT: 켄지가 처음으로 진심을 보인 순간])
+        - Only use this for genuinely impactful moments, NOT every turn.
+
         [Language]
         - All responses MUST be in Korean.
     """
@@ -641,12 +646,52 @@ async def chat(request: ChatRequest):
                 except Exception as e:
                     print(f"Lore extraction error: {e}")
 
+        # [MOMENT] 태그 파싱 및 타임라인 저장
+        MILESTONES = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+        moment_match = re.search(r'\[MOMENT\s*[:：]?\s*(.+?)\]', reply, re.IGNORECASE)
+        
+        for idx_c, char in enumerate(target_chars):
+            cid = char.get('id', 'unknown')
+            cname = char['name']
+            if cid not in chats_db or not isinstance(chats_db[cid], dict):
+                continue
+            
+            # [MOMENT] 태그가 있으면 타임라인에 기록
+            if moment_match:
+                moment_content = moment_match.group(1).strip()
+                tl = chats_db[cid].get("timeline", [])
+                tl.append({
+                    "type": "moment",
+                    "title": moment_content,
+                    "timestamp": __import__('datetime').datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "description": request.message[:80]
+                })
+                chats_db[cid]["timeline"] = tl
+                print(f"[Timeline] MOMENT recorded for {cname}: {moment_content}")
+            
+            # 호감도 마일스톤 달성 확인
+            new_fav = chats_db[cid].get("favorability", 0)
+            prev_fav = new_fav - (change if 'change' in dir() else 0)
+            for milestone in MILESTONES:
+                if prev_fav < milestone <= new_fav:
+                    tl = chats_db[cid].get("timeline", [])
+                    tl.append({
+                        "type": "milestone",
+                        "title": f"호감도 {milestone}% 달성! 💖",
+                        "timestamp": __import__('datetime').datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        "description": f"{cname}과(와)의 관계가 새로운 단계에 접어들었습니다."
+                    })
+                    chats_db[cid]["timeline"] = tl
+                    print(f"[Timeline] Milestone {milestone}% for {cname}")
+
         # 모든 시스템 태그 제거 (최종 답변 정제)
+        reply = re.sub(r'\[MOMENT\s*[:：]?\s*.+?\]', '', reply, flags=re.IGNORECASE)
         reply = re.sub(r'\[[^\]]*? 감정\s*[:：]\s*[^\]]*?\]', '', reply)
         reply = re.sub(r'\[[^\]]*?FEED\s*[:：]\s*[^\]]*?\]', '', reply)
         reply = re.sub(r'\[[^\]]*?호감도\s*[:：]\s*[^\]]*?\]', '', reply)
         reply = re.sub(r'\[BG\s*[:：]\s*.*?\]', '', reply)
         reply = reply.strip()
+
 
         # 메모리 요약 트리거
         for char in target_chars:
@@ -875,39 +920,35 @@ async def get_timeline(char_id: str):
         return []
         
     data = chats_db[char_id]
-    messages = data if isinstance(data, list) else data.get("messages", [])
+    if isinstance(data, list):
+        data = {"messages": data, "favorability": 0}
     
-    timeline = []
-    for msg in messages:
+    # DB에 저장된 timeline 이벤트 (마일스톤 + MOMENT)
+    stored_timeline = data.get("timeline", [])
+    
+    # 기존 메시지 기반 이미지/시나리오 이벤트도 추가
+    messages_list = data.get("messages", [])
+    extra_events = []
+    for msg in messages_list:
         content = msg.get("content", "")
-        # 핵심 키워드나 태그 기반으로 주요 마일스톤 추출
         if "[시나리오 시작" in content:
-            timeline.append({
+            extra_events.append({
                 "type": "scenario",
                 "title": content.split("]")[0].replace("[", ""),
                 "timestamp": msg.get("timestamp"),
                 "description": content.split("\n")[1] if "\n" in content else "새로운 상황극이 시작되었습니다."
             })
         elif msg.get("imageUrl"):
-            timeline.append({
+            extra_events.append({
                 "type": "image",
                 "title": "특별한 기억 공유",
                 "timestamp": msg.get("timestamp"),
                 "imageUrl": msg.get("imageUrl"),
                 "description": "함께 새로운 추억 사진을 남겼습니다."
             })
-        elif "사랑" in content or "우정" in content or "함께" in content:
-            # 간단한 감성 분석(모방)을 통한 주요 대사 추출
-            if len(content) < 50:
-                timeline.append({
-                    "type": "moment",
-                    "title": "마음을 울린 한 마디",
-                    "timestamp": msg.get("timestamp"),
-                    "description": content
-                })
-                
-    # 중복 제거 및 최신순 정렬 (기본은 시간순으로 보여주는게 좋음)
-    return timeline
+    
+    return stored_timeline + extra_events
+
 
 SCENARIOS = [
     {

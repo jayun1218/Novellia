@@ -101,12 +101,22 @@ const RelationshipPage = () => {
         <div className="bg-surface border border-white/5 rounded-[40px] p-8 min-h-[600px] flex items-center justify-center relative overflow-hidden">
           <div className="absolute top-8 left-8 flex flex-col gap-2">
              <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3 py-1 bg-white/5 rounded-full">
-               <div className="w-2 h-2 rounded-full bg-rose-500" /> 호감도 80+ (운명)
+               <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.8)]" /> 80+ ✨ 운명
              </div>
              <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3 py-1 bg-white/5 rounded-full">
-               <div className="w-2 h-2 rounded-full bg-blue-500" /> 호감도 50+ (동료)
+               <div className="w-2 h-2 rounded-full bg-violet-500" /> 50+ 💜 동료
+             </div>
+             <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3 py-1 bg-white/5 rounded-full">
+               <div className="w-2 h-2 rounded-full bg-blue-500" /> 30+ 💙 친구
+             </div>
+             <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3 py-1 bg-white/5 rounded-full">
+               <div className="w-2 h-2 rounded-full bg-emerald-500" /> 10+ 💚 지인
+             </div>
+             <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3 py-1 bg-white/5 rounded-full">
+               <div className="w-2 h-2 rounded-full bg-gray-500" /> 0+ 🩶 낯선 사이
              </div>
           </div>
+
           
           {loading ? (
             <div className="flex flex-col items-center gap-4">
