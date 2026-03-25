@@ -82,21 +82,14 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
         const chars = (await Promise.all(charPromises)).filter(c => c !== null);
         setActiveCharacters(chars);
 
-        // 3. Initial Message (Combine Intro and Guide)
+        // 3. Initial Message (Intro only, and remove the guide text)
         if (chars.length > 0) {
-          const charNames = chars.map(c => c.name).join(', ');
           const initialMsgs = [
             {
               id: 'guide',
               content: wvData.intro_text,
               isAi: true,
               role: 'guide',
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            },
-            {
-              id: Date.now(),
-              content: `${wvData.prologue_preview?.split('\n')[0] || ''}\n\n*${charNames}님이 당신을 기다리고 있습니다.*`,
-              isAi: true,
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             }
           ];
@@ -133,7 +126,7 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
           message: text,
           worldview_id: id,
           custom_user_persona: `[User Name: ${userName}] ${userPersona}`,
-          char_ids: activeCharacters.map(c => c.id || c.name), // char_id handle in backend is tricky, using name as fallback
+          char_ids: activeCharacters.map(c => c.id || c.name), 
           chat_history: messages.map(m => ({ role: m.isAi ? 'assistant' : 'user', content: m.content })),
         }),
       });
@@ -223,6 +216,7 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
         onOpenTimeline={() => {}}
         onApplyPersona={() => {}}
         characterEmotions={characterEmotions}
+        isStory={true}
       />
 
       <div className="flex-1 max-w-4xl mx-auto w-full px-4 pt-12 pb-32">

@@ -13,9 +13,9 @@ import QuestWidget from '@/components/Chat/QuestWidget';
 import BottomNav from '@/components/Layout/BottomNav';
 
 const popularCharacters: Record<string, any> = {
-  'ma4': { 
-    name: '미야 아츠무', 
-    avatarUrl: 'http://127.0.0.1:8000/uploads/atsumu.png', 
+  'ma4': {
+    name: '아츠무',
+    avatarUrl: 'http://127.0.0.1:8000/uploads/atsumu.png',
     coverUrl: 'http://127.0.0.1:8000/uploads/atsumu.png',
     description: '이나리자키 고교 배구부의 천재 세터. 고교 No.1 세터로 불리며 승부욕이 매우 강합니다.',
     greeting: '(코트 위에 서서 배구공을 굴리며 당신을 빤히 바라본다) "어이, 니. 내 토스 함 쳐볼래? 아무한테나 주는 거 아인디."',
@@ -23,11 +23,11 @@ const popularCharacters: Record<string, any> = {
     theme: 'taro'
   },
   'ma_osamu': {
-    name: '미야 오사무',
+    name: '오사무',
     avatarUrl: 'http://127.0.0.1:8000/uploads/osamu.png',
     coverUrl: 'http://127.0.0.1:8000/uploads/osamu.png',
     description: "아츠무의 쌍둥이 형제. 윙 스파이커로서 아츠무와 '괴짜 속공'을 재현할 정도의 실력자. 아츠무보다 차분하지만 더 독설가입니다.",
-    greeting: '(먹고 있던 주먹밥을 삼키며 무심하게 당신을 바라본다) "어이, 니. 아츠무는 봤냐? 그 자식 또 어디서 사고 치고 있는 거 아이가."',
+    greeting: '(먹고 있던 주먹밥을 삼키며 무심하게 당신을 바라본다) "어이, 니. 아츠무는 봤나? 그 자식 또 어디서 사고 치고 있는 거 아이가."',
     recommended_personas: ["오니기리 미야의 단골 손님", "오사무의 요리 조수", "쌍둥이 싸움 중재자"],
     theme: 'gray'
   },
@@ -144,7 +144,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         if (response.ok) {
           const data = await response.json();
           setUserProfiles(data);
-          
+
           // Restore selected persona from localStorage
           const savedPersonaName = localStorage.getItem(`selectedPersona_${id}`);
           if (savedPersonaName) {
@@ -177,8 +177,8 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
               const data = await res.json();
               return { id: charId, ...data, avatarUrl: data.avatar_url || '/avatar.png' };
             }
-          } 
-          
+          }
+
           // 2. 인기 캐릭터 (ma*) - 항상 백엔드에서 최신 정보를 먼저 조회 시도
           if (popularCharacters[charId]) {
             try {
@@ -196,8 +196,8 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         };
 
         // 참여 캐릭터 리스트 결정
-        const charIdsToFetch = (chatData && chatData.char_ids && chatData.char_ids.length > 0) 
-          ? chatData.char_ids 
+        const charIdsToFetch = (chatData && chatData.char_ids && chatData.char_ids.length > 0)
+          ? chatData.char_ids
           : [id];
 
         const fetchedChars = await Promise.all(charIdsToFetch.map(fetchCharInfo));
@@ -206,7 +206,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         if (finalChars.length > 0) {
           setActiveCharacters(finalChars);
           setSelectedCharacter(finalChars[0]);
-          
+
           // 캐릭터 테마가 있으면 자동 적용 (기본 테마일 때만)
           if (finalChars[0].theme && settings.theme === 'basic') {
             setSettings(prev => ({ ...prev, theme: finalChars[0].theme }));
@@ -248,16 +248,16 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     if (messages.length > 0 && activeCharacters.length > 0) {
       const charId = activeCharacters[0].id || id;
       const payload = {
-        messages, 
+        messages,
         // favorability: favorability, // 제거하여 서버측 데이터 보존
         user_profile_index: selectedProfileIndex,
         char_ids: activeCharacters.map(c => c.id),
         settings
       };
-      
+
       const payloadStr = JSON.stringify(payload);
       if (lastSavedRef.current === payloadStr) return;
-      
+
       fetch(`http://127.0.0.1:8000/chats/${charId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -277,7 +277,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       isAi: false,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
-    
+
     setMessages(prev => [...prev, userMsg]);
 
     try {
@@ -295,12 +295,12 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       if (response.ok) {
         const data = await response.json();
         const reply = data.reply;
-        
+
         if (!reply) {
           console.error('No reply from server');
           return;
         }
-        
+
         // 배경 변경 태그 추출 및 적용
         const bgMatch = reply.match(/\[BG:\s*(.*?)\]/);
         if (bgMatch && settings.autoBg) {
@@ -322,7 +322,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         // 멀티 캐릭터 답변 분리 로직 복구
         const parts = reply.trim().split(/(\[(?![^\]]*?(?:상태창|FEED|호감도|BG))[^\]]+\])/).filter(Boolean);
         const newAiMsgs: any[] = [];
-        
+
         if (parts.length >= 2 && parts[0].startsWith('[')) {
           for (let i = 0; i < parts.length; i += 2) {
             const nameTag = parts[i];
@@ -337,7 +337,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
             }
           }
         }
-        
+
         if (newAiMsgs.length === 0) {
           newAiMsgs.push({
             id: Date.now() + 1,
@@ -357,7 +357,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
 
   const inviteCharacter = async (charId: string) => {
     if (activeCharacters.find(c => c.id === charId)) return;
-    
+
     try {
       let newChar: any = null;
       if (charId.startsWith('my-')) {
@@ -417,7 +417,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
 
   const handleObserve = async () => {
     if (isGeneratingImage || messages.length === 0) return; // Using isGeneratingImage as a general loading state
-    
+
     setIsGeneratingImage(true); // Using setIsGeneratingImage to indicate loading
     try {
       const res = await fetch(`http://127.0.0.1:8000/chat/${id}/observe`, {
@@ -425,9 +425,9 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: '[관찰 모드]',
-          chat_history: messages.map(m => ({ 
-            role: m.isAi ? 'assistant' : 'user', 
-            content: m.content 
+          chat_history: messages.map(m => ({
+            role: m.isAi ? 'assistant' : 'user',
+            content: m.content
           })),
           user_profile_index: selectedProfileIndex,
           char_ids: activeCharacters.map(p => p.id)
@@ -437,7 +437,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       if (res.ok) {
         const data = await res.json();
         const reply = data.reply;
-        
+
         const parts = reply.split(/(?=\[.*?\])/g).filter((p: string) => {
           // 캐릭터 이름 태그로 시작하고 실질적인 내용이 있는 것만 필터링
           return p.trim() && /^\[(?!(상태창|FEED|호감도|BG)).*?\]/.test(p);
@@ -523,7 +523,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const handleSelectScenario = (scenarioId: string) => {
     const scenario = scenarios.find(s => s.id === scenarioId);
     if (!scenario) return;
-    
+
     setActiveScenario(scenarioId);
     setMessages(prev => [...prev, {
       id: Date.now(),
@@ -563,7 +563,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         const updatedProfiles = [...userProfiles, data];
         setUserProfiles(updatedProfiles);
         setSelectedProfileIndex(updatedProfiles.length - 1);
-        
+
         setMessages(prev => [...prev, {
           id: Date.now(),
           content: `*페르소나 '${persona}'가 적용되었습니다.*`,
@@ -588,12 +588,12 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   };
 
   return (
-    <main 
+    <main
       className="min-h-screen bg-background text-foreground flex flex-col pt-16 transition-all duration-1000 bg-cover bg-center"
       style={bgUrl ? { backgroundImage: `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.8)), url(${bgUrl})` } : {}}
     >
-      <ChatHeader 
-        activeCharacters={activeCharacters} 
+      <ChatHeader
+        activeCharacters={activeCharacters}
         onInvite={inviteCharacter}
         userProfiles={userProfiles}
         selectedProfileIndex={selectedProfileIndex}
@@ -612,9 +612,9 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       <div className="flex-1 max-w-4xl mx-auto w-full px-4 pt-12 pb-32">
         <div className="space-y-2">
           {messages.map((message) => (
-            <Message 
-              key={message.id} 
-              {...message} 
+            <Message
+              key={message.id}
+              {...message}
               settings={settings}
               userProfile={userProfiles[selectedProfileIndex]}
               activeCharacters={activeCharacters}
@@ -626,16 +626,16 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         </div>
       </div>
 
-      <ChatInput 
-        onSend={handleSend} 
+      <ChatInput
+        onSend={handleSend}
         onGenerateScene={handleGenerateScene}
         onObserve={handleObserve}
         isGeneratingImage={isGeneratingImage}
       />
 
       {selectedCharacter && (
-        <CharacterProfileModal 
-          isOpen={isProfileModalOpen} 
+        <CharacterProfileModal
+          isOpen={isProfileModalOpen}
           onClose={() => setIsProfileModalOpen(false)}
           character={selectedCharacter}
           favorability={favorability}
@@ -643,14 +643,14 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         />
       )}
 
-      <ScenarioSelector 
+      <ScenarioSelector
         isOpen={isScenarioModalOpen}
         onClose={() => setIsScenarioModalOpen(false)}
         onSelect={handleSelectScenario}
         scenarios={scenarios}
       />
 
-      <StoryTimeline 
+      <StoryTimeline
         isOpen={isTimelineOpen}
         onClose={() => setIsTimelineOpen(false)}
         timeline={timelineData}
@@ -660,10 +660,10 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       <BottomNav />
 
       {/* Quest System Widget */}
-      <QuestWidget 
-        favorability={favorability} 
-        messageCount={messages.length} 
-        characterCount={activeCharacters.length} 
+      <QuestWidget
+        favorability={favorability}
+        messageCount={messages.length}
+        characterCount={activeCharacters.length}
       />
     </main>
   );

@@ -25,6 +25,7 @@ interface ChatHeaderProps {
   characterEmotions?: Record<string, string>;
   recommendedPersonas?: string[];
   onApplyPersona?: (persona: string) => void;
+  isStory?: boolean;
 }
 
 const ChatHeader: React.FC<ChatHeaderProps> = ({ 
@@ -41,7 +42,8 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
   onOpenTimeline,
   characterEmotions = {},
   recommendedPersonas = [],
-  onApplyPersona
+  onApplyPersona,
+  isStory = false
 }) => {
   const [showProfiles, setShowProfiles] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -134,14 +136,16 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
                   />
                 </div>
               ))}
-              {/* Invite Button */}
-              <button 
-                onClick={() => setIsSearching(!isSearching)}
-                className="w-10 h-10 rounded-full bg-white/5 border-2 border-dashed border-white/20 flex items-center justify-center hover:bg-white/10 hover:border-primary/50 transition-all active:scale-90"
-                title="캐릭터 초대"
-              >
-                <User className="w-5 h-5 text-gray-400" />
-              </button>
+              {/* Invite Button - Hidden in Story Mode */}
+              {!isStory && (
+                <button 
+                  onClick={() => setIsSearching(!isSearching)}
+                  className="w-10 h-10 rounded-full bg-white/5 border-2 border-dashed border-white/20 flex items-center justify-center hover:bg-white/10 hover:border-primary/50 transition-all active:scale-90"
+                  title="캐릭터 초대"
+                >
+                  <User className="w-5 h-5 text-gray-400" />
+                </button>
+              )}
             </div>
 
             <div className="min-w-0 hidden sm:block">
@@ -194,14 +198,16 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
 
         {/* Right Section: Selectors & Settings */}
         <div className="flex items-center gap-1">
-          <button 
-            onClick={onOpenScenarios}
-            className="p-2 hover:bg-orange-500/10 rounded-full transition-all group lg:flex hidden items-center gap-2 px-3 border border-transparent hover:border-orange-500/20"
-            title="시나리오 선택"
-          >
-            <Zap className="w-5 h-5 text-orange-400 group-hover:scale-110 transition-transform" />
-            <span className="text-xs font-black text-orange-400/80 uppercase tracking-wider">Scenario</span>
-          </button>
+          {!isStory && (
+            <button 
+              onClick={onOpenScenarios}
+              className="p-2 hover:bg-orange-500/10 rounded-full transition-all group lg:flex hidden items-center gap-2 px-3 border border-transparent hover:border-orange-500/20"
+              title="시나리오 선택"
+            >
+              <Zap className="w-5 h-5 text-orange-400 group-hover:scale-110 transition-transform" />
+              <span className="text-xs font-black text-orange-400/80 uppercase tracking-wider">Scenario</span>
+            </button>
+          )}
 
           <button 
             onClick={onOpenTimeline}

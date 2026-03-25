@@ -13,6 +13,7 @@ export default function WorldviewDetailPage({ params }: { params: Promise<{ id: 
   const [persona, setPersona] = useState('');
   const [userName, setUserName] = useState('');
   const [activeTab, setActiveTab] = useState('story'); // story, characters, prologue
+  const [hasHistory, setHasHistory] = useState(false);
 
   useEffect(() => {
     const defaultName = localStorage.getItem('novellia_user_name') || '여행자';
@@ -34,16 +35,37 @@ export default function WorldviewDetailPage({ params }: { params: Promise<{ id: 
         setLoading(false);
       }
     };
+
+    const checkHistory = async () => {
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/chats`);
+        if (response.ok) {
+          const chats = await response.json();
+          const worldviewChat = Object.values(chats).find((chat: any) => chat.worldview_id === id);
+          if (worldviewChat) setHasHistory(true);
+        }
+      } catch (error) {
+        console.error('Failed to check history:', error);
+      }
+    };
+
     fetchWorldview();
+    checkHistory();
   }, [id]);
 
-  const handleStart = () => {
+  const handleStart = (isNew: boolean = false) => {
     if (!persona.trim()) return;
     localStorage.setItem(`worldview_persona_${id}`, persona);
-    // If the worldview has a fixed name, we should respect it in the chat
     if (worldview.user_name_preset) {
        localStorage.setItem(`worldview_user_name_${id}`, worldview.user_name_preset);
     }
+    
+    if (isNew) {
+      localStorage.setItem(`worldview_reset_${id}`, 'true');
+    } else {
+      localStorage.removeItem(`worldview_reset_${id}`);
+    }
+    
     router.push(`/worldviews/${id}/chat`);
   };
 
@@ -142,16 +164,36 @@ export default function WorldviewDetailPage({ params }: { params: Promise<{ id: 
                 </p>
               </div>
               
-              {worldview.user_role_guide && (
-                <div className="p-8 bg-surface border border-white/10 rounded-[2rem] space-y-4 shadow-xl">
-                  <h3 className="text-xl font-black flex items-center gap-2">
-                    <User className="w-6 h-6 text-primary" /> 【유저 설정 가이드】
-                  </h3>
-                  <p className="text-gray-300 leading-relaxed font-medium">
-                    {worldview.user_role_guide}
+              <div className="p-8 bg-surface border border-white/10 rounded-[2rem] space-y-6 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16" />
+                <h3 className="text-xl font-black flex items-center gap-2">
+                  <User className="w-6 h-6 text-primary" /> 【나의 페르소나 설정】
+                </h3>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">이름</label>
+                    <input 
+                      type="text" 
+                      value={userName}
+                      onChange={(e) => setUserName(e.target.value)}
+                      placeholder="나의 이름을 입력하세요"
+                      className="w-full h-14 bg-black/50 border border-white/10 rounded-2xl px-5 text-sm font-bold focus:border-primary/50 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">나의 역할/성격</label>
+                    <textarea 
+                      value={persona}
+                      onChange={(e) => setPersona(e.target.value)}
+                      placeholder="이 세계관에서 당신은 누구인가요? (예: 이나리자키에 갓 부임한 열혈 매니저)"
+                      className="w-full h-32 bg-black/50 border border-white/10 rounded-2xl p-5 text-sm font-bold focus:border-primary/50 outline-none transition-all resize-none"
+                    />
+                  </div>
+                  <p className="text-[10px] text-gray-500 font-bold italic px-2">
+                    * 설정한 페르소나는 AI 캐릭터가 당신을 대하는 태도에 직접적인 영향을 미칩니다.
                   </p>
                 </div>
-              )}
+              </div>
             </div>
           )}
 
@@ -185,7 +227,7 @@ export default function WorldviewDetailPage({ params }: { params: Promise<{ id: 
                 
                 <div className="prologue-container relative z-10 space-y-6">
                   {worldview.prologue_preview?.split('\n').map((line: string, i: number) => {
-                    // Header Metadata (e.g. 1984/04/04...)
+                    // Header Metadata
                     if (i === 0 && line.includes('｜')) {
                       const parts = line.split('｜');
                       return (
@@ -202,28 +244,47 @@ export default function WorldviewDetailPage({ params }: { params: Promise<{ id: 
                       );
                     }
                     
-                    // Dialogue (e.g. Name｜"Text")
-                    if (line.includes('｜')) {
-                      const [name, text] = line.split('｜');
+                    // Character Status
+                    const charStatusMatch = line.match(/^\[(.*?)\s*\|\s*(.*?)\s*\|\s*(.*?)\]/);
+                    if (charStatusMatch) {
                       return (
-                        <div key={i} className="flex gap-4 items-baseline group">
-                          <span className="text-primary font-black whitespace-nowrap min-w-[70px] text-right text-[11px] uppercase tracking-widest opacity-80 group-hover:opacity-100 transition-opacity">
-                            {name.trim()}
-                          </span>
-                          <span className="text-gray-700 font-bold">｜</span>
-                          <p className="text-gray-200 leading-relaxed font-medium">{text.trim()}</p>
+                        <div key={i} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/5 mb-2 group hover:bg-white/10 transition-colors">
+                           <span className="text-[10px] font-black text-primary min-w-[60px] uppercase tracking-widest">{charStatusMatch[1].trim()}</span>
+                           <div className="h-3 w-[1px] bg-white/10" />
+                           <span className="text-[11px] text-gray-300 font-bold">{charStatusMatch[2].trim()}</span>
+                           <div className="h-1 w-1 rounded-full bg-primary/40" />
+                           <span className="text-[11px] text-gray-400 italic flex-1">{charStatusMatch[3].trim()}</span>
                         </div>
                       );
                     }
 
-                    // Status Badge (e.g. [상태: ...])
-                    if (line.trim().startsWith('[상태:')) {
+                    // Relationships
+                    const relMatch = line.match(/^\[관계｜(.*?)\]/);
+                    if (relMatch) {
                       return (
-                        <div key={i} className="mt-12 p-5 bg-primary/5 border border-primary/20 rounded-2xl inline-block">
-                          <div className="flex items-center gap-3">
-                            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                            <span className="text-[11px] font-black text-primary uppercase tracking-[0.2em]">{line.trim()}</span>
+                        <div key={i} className="mt-4 p-4 bg-primary/5 border border-primary/20 rounded-2xl">
+                          <div className="text-[10px] font-black text-primary uppercase tracking-widest mb-3 px-2 py-0.5 bg-primary/10 rounded inline-block">관계 호감도</div>
+                          <div className="flex flex-wrap gap-2">
+                             {relMatch[1].split('｜').map((rel, ri) => (
+                                <div key={ri} className="bg-black/40 px-3 py-1.5 rounded-lg text-[11px] font-bold text-gray-300 border border-white/5 flex items-center gap-2">
+                                   {rel.trim()}
+                                </div>
+                             ))}
                           </div>
+                        </div>
+                      );
+                    }
+
+                    if (line.includes('｜')) {
+                      const [name, text] = line.split('｜');
+                      const cleanName = name.replace(/[\[\]]/g, '').trim();
+                      return (
+                        <div key={i} className="flex gap-4 items-baseline group">
+                          <span className="text-primary font-black whitespace-nowrap min-w-[70px] text-right text-[11px] uppercase tracking-widest opacity-80 group-hover:opacity-100 transition-opacity">
+                            {cleanName}
+                          </span>
+                          <span className="text-gray-700 font-bold">｜</span>
+                          <p className="text-gray-200 leading-relaxed font-medium">{text.trim()}</p>
                         </div>
                       );
                     }
@@ -257,13 +318,30 @@ export default function WorldviewDetailPage({ params }: { params: Promise<{ id: 
 
       {/* Floating Action Section */}
       <div className="relative z-20 sticky bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black to-transparent pt-20 pb-10 px-6">
-         <div className="max-w-md mx-auto">
-            <button 
-              onClick={handleStart}
-              className="w-full h-16 bg-white text-black rounded-2xl font-black text-xl flex items-center justify-center gap-3 hover:bg-primary hover:text-white transition-all transform active:scale-95 shadow-2xl shadow-primary/20 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300"
-            >
-              시나리오 시작하기 <ChevronRight className="w-6 h-6" />
-            </button>
+         <div className="max-w-md mx-auto flex flex-col gap-4">
+            {hasHistory ? (
+              <>
+                <button 
+                  onClick={() => handleStart(false)}
+                  className="w-full h-16 bg-white text-black rounded-2xl font-black text-xl flex items-center justify-center gap-3 hover:bg-primary hover:text-white transition-all transform active:scale-95 shadow-2xl shadow-primary/20"
+                >
+                  기존 스토리 이어하기 <ChevronRight className="w-6 h-6" />
+                </button>
+                <button 
+                  onClick={() => handleStart(true)}
+                  className="w-full h-12 bg-white/5 text-gray-400 border border-white/10 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/30 transition-all"
+                >
+                  처음부터 새로 시작하기
+                </button>
+              </>
+            ) : (
+              <button 
+                onClick={() => handleStart(false)}
+                className="w-full h-16 bg-white text-black rounded-2xl font-black text-xl flex items-center justify-center gap-3 hover:bg-primary hover:text-white transition-all transform active:scale-95 shadow-2xl shadow-primary/20 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300"
+              >
+                시나리오 시작하기 <ChevronRight className="w-6 h-6" />
+              </button>
+            )}
          </div>
       </div>
 
@@ -280,10 +358,6 @@ export default function WorldviewDetailPage({ params }: { params: Promise<{ id: 
         }
         ::-webkit-scrollbar-thumb:hover {
           background: #444;
-        }
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
         }
         .bg-surface {
           background: rgba(255, 255, 255, 0.03);
