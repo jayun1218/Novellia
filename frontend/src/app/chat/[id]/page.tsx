@@ -588,10 +588,12 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   };
 
   return (
-    <main
-      className="min-h-screen bg-background text-foreground flex flex-col pt-16 transition-all duration-1000 bg-cover bg-center"
-      style={bgUrl ? { backgroundImage: `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.8)), url(${bgUrl})` } : {}}
-    >
+    <main className="relative min-h-screen text-foreground flex flex-col pt-16">
+      {/* Fixed Background Layer */}
+      <div 
+        className="fixed inset-0 z-[-1] bg-cover bg-center transition-all duration-1000"
+        style={bgUrl ? { backgroundImage: `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.8)), url(${bgUrl})` } : { backgroundColor: '#121212' }}
+      />
       <ChatHeader
         activeCharacters={activeCharacters}
         onInvite={inviteCharacter}

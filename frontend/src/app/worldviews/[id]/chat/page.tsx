@@ -153,35 +153,15 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
         }
         setCharacterEmotions(newEmotions);
 
-        // Parse Multi-character responses
-        const parts = reply.trim().split(/(\[(?![^\]]*?(?:상태창|FEED|호감도|BG))[^\]]+\])/).filter(Boolean);
-        const newAiMsgs: any[] = [];
-        
-        if (parts.length >= 2 && parts[0].startsWith('[')) {
-          for (let i = 0; i < parts.length; i += 2) {
-            const nameTag = parts[i];
-            const content = parts[i + 1] || '';
-            if (nameTag.startsWith('[') && content.trim()) {
-              newAiMsgs.push({
-                id: Date.now() + i,
-                content: `${nameTag} ${content.trim()}`,
-                isAi: true,
-                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-              });
-            }
-          }
-        }
-        
-        if (newAiMsgs.length === 0) {
-          newAiMsgs.push({
-            id: Date.now() + 1,
-            content: reply.trim(),
-            isAi: true,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          });
-        }
+        // [MODIFIED] Do NOT split response in Story Mode. Use single narrative bubble.
+        const newAiMsg = {
+          id: Date.now(),
+          content: reply.trim(),
+          isAi: true,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
 
-        setMessages(prev => [...prev, ...newAiMsgs]);
+        setMessages(prev => [...prev, newAiMsg]);
         setFavorability(data.favorability);
         if (data.quick_replies) {
           setQuickReplies(data.quick_replies);
@@ -279,10 +259,12 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
   );
 
   return (
-    <main 
-      className="min-h-screen bg-background text-foreground flex flex-col pt-16 bg-cover bg-center"
-      style={{ backgroundImage: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.9)), url(${worldview?.thumbnail_url})` }}
-    >
+    <main className="relative min-h-screen text-foreground flex flex-col pt-16">
+      {/* Fixed Background Layer */}
+      <div 
+        className="fixed inset-0 z-[-1] bg-cover bg-center transition-all duration-1000"
+        style={worldview?.thumbnail_url ? { backgroundImage: `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.8)), url(${worldview?.thumbnail_url})` } : { backgroundColor: '#121212' }}
+      />
       <ChatHeader 
         activeCharacters={activeCharacters} 
         onInvite={() => {}}
@@ -319,6 +301,7 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
               activeCharacters={activeCharacters}
               favorability={favorability}
               isStory={true}
+              storyAvatar={worldview?.thumbnail_url}
             />
           ))}
           <div ref={messagesEndRef} className="h-4" />

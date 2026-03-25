@@ -19,6 +19,7 @@ interface MessageProps {
   favorability?: number;
   imageUrl?: string;
   isStory?: boolean;
+  storyAvatar?: string;
   onAvatarClick?: (char: any) => void;
 }
 
@@ -33,6 +34,7 @@ const Message: React.FC<MessageProps> = ({
   imageUrl, 
   role,
   isStory = false,
+  storyAvatar,
   onAvatarClick 
 }) => {
   const [isStatusOpen, setIsStatusOpen] = useState(false);
@@ -43,6 +45,11 @@ const Message: React.FC<MessageProps> = ({
   const getSpeakerInfo = () => {
     if (!isAi) return { name: userProfile?.name || '나', avatar: userProfile?.avatar_url || '/avatar.png', char: null };
     
+    // 시나리오 모드일 경우 세계관 전용 아바타(나레이션) 우선 사용
+    if (isStory && storyAvatar) {
+      return { name: 'Scenario', avatar: storyAvatar, char: null };
+    }
+
     const nameMatch = content.match(/^\[(.*?)\]/);
     const speakerName = nameMatch ? nameMatch[1] : '';
     const char = activeCharacters.find(c => c.name === speakerName);
@@ -106,6 +113,24 @@ const Message: React.FC<MessageProps> = ({
     remainingText = relationshipRaw ? remainingText.replace(relRegex, "") : remainingText;
     
     const relationships = relationshipRaw ? relationshipRaw.split('｜').filter(Boolean) : [];
+    
+    // 5. Scenario Summary Parsing [☀︎:0]｜[★:0], [상태: ...], bullets, turn count
+    const scenarioSummaryRegex = /\[[☀︎★❤⚡️].*?\](?:｜\[.*?\])*|\[상태:\s*.*?\]|^- .*|엔딩까지 턴 수 \d+\/\d+/gm;
+    const summaryLines: string[] = [];
+    let scenarioSummaryRaw = "";
+    
+    let summaryMatch;
+    while ((summaryMatch = scenarioSummaryRegex.exec(remainingText)) !== null) {
+      summaryLines.push(summaryMatch[0]);
+      remainingText = remainingText.replace(summaryMatch[0], "");
+    }
+    
+    const scenarioSummary = {
+      stats: summaryLines.filter(l => l.startsWith('[') && !l.includes('상태:')),
+      status: summaryLines.find(l => l.includes('[상태:')),
+      bullets: summaryLines.filter(l => l.startsWith('- ')),
+      turnCount: summaryLines.find(l => l.includes('엔딩까지 턴 수'))
+    };
 
     const cleanSystemTags = (t: string) => {
       return t.replace(/\[.*? 감정:\s*.*?\]/g, "")
@@ -113,11 +138,19 @@ const Message: React.FC<MessageProps> = ({
               .replace(/\[.*?호감도:\s*[+-]?\d+\]/g, "")
               .replace(/\[FEED:\s*.*?\]/g, "")
               .replace(/𝕾𝖈𝖍𝖎𝖈𝖐𝖘𝖆𝖑/g, "")
+              .replace(/\[[☀︎★❤⚡️].*?\](?:｜\[.*?\])*/g, "")
+              .replace(/\[상태:\s*.*?\]/g, "")
+              .replace(/^- .*/gm, "")
+              .replace(/^-{3,}/gm, "") // 구분선(---, ---- 등) 제거
               .replace(/엔딩까지 턴 수 \d+\/\d+/g, "");
     };
 
     const stripSpeakerPrefix = (t: string) => {
-      return t.split('\n').map(line => line.replace(/^(?:\[.*?\]|.*?[:：])\s*/, "")).join('\n');
+      // 따옴표(")가 바로 뒤에 붙는 이름(대화문)은 삭제하지 않고 보존함
+      return t.split('\n').map(line => {
+        if (line.match(/^\S+?".*?"/)) return line;
+        return line.replace(/^(?:\[.*?\]|.*?[:：])\s*/, "");
+      }).join('\n');
     };
 
     let mainText = cleanSystemTags(remainingText);
@@ -128,15 +161,17 @@ const Message: React.FC<MessageProps> = ({
       dialogue: mainText.trim(), 
       scenarioStatuses,
       legacyStatuses,
-      relationships
+      relationships,
+      scenarioSummary
     };
   };
 
-  const { header, dialogue, scenarioStatuses, legacyStatuses, relationships } = parseContent(content);
+  const { header, dialogue, scenarioStatuses, legacyStatuses, relationships, scenarioSummary } = parseContent(content);
   const isGuide = role === 'guide';
 
   const formatDialogue = (text: string) => {
-    const parts = text.split(/(\*.*?\*|\(.*?\)|\S+?\s*｜\s*".*?")/g);
+    // 이름"대화" 또는 이름｜ "대화" 형태 모두 지원
+    const parts = text.split(/(\*.*?\*|\(.*?\)|\S+?\s*(?:｜\s*)?".*?")/g);
     
     return parts.map((part, i) => {
       if ((part.startsWith('*') && part.endsWith('*')) || (part.startsWith('(') && part.endsWith(')'))) {
@@ -145,11 +180,11 @@ const Message: React.FC<MessageProps> = ({
         return <span key={i} className={`${actionColor} italic font-medium`}>{part}</span>;
       }
       
-      const charDialogueMatch = part.match(/^(\S+?)\s*｜\s*"(.*?)"$/);
+      const charDialogueMatch = part.match(/^(\S+?)\s*(?:｜\s*)?"(.*?)"$/);
       if (charDialogueMatch) {
          return (
-           <span key={i} className="block my-2" style={{ textIndent: 0 }}>
-             <span className="font-black text-primary mr-2 tracking-tight">{charDialogueMatch[1]}</span>
+           <span key={i} className="block my-1.5" style={{ textIndent: 0 }}>
+             <span className="font-black text-primary mr-1 tracking-tight">{charDialogueMatch[1]}</span>
              <span className={isAi ? "" : "text-inherit"}>"{charDialogueMatch[2]}"</span>
            </span>
          );
@@ -211,89 +246,82 @@ const Message: React.FC<MessageProps> = ({
             </div>
 
             {/* AI Status Windows (Hybrid) */}
-            {isAi && settings?.showStatus && (scenarioStatuses.length > 0 || legacyStatuses.length > 0 || relationships.length > 0) && (
+            {isAi && (isStory || settings?.showStatus) && (scenarioStatuses.length > 0 || legacyStatuses.length > 0 || relationships.length > 0) && (
               <div className={`mt-6 pt-6 border-t ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'border-black/5' : 'border-white/5'} space-y-4`}>
                 
-                {/* 1. Scenario Style Statuses */}
+                {/* 1. Scenario Style Statuses (Card Layout) */}
                 {scenarioStatuses.length > 0 && (
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="space-y-2">
                     {scenarioStatuses.map((s, idx) => (
-                      <div key={idx} className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl border transition-all ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-white/5 border-white/5'}`}>
-                         <span className="text-[11px] font-black text-primary border-r border-black/10 pr-3 min-w-[60px]">{s.name}</span>
-                         <div className="flex flex-col">
-                            <span className="text-[10px] font-bold flex items-center gap-1.5">
-                              <Zap className="w-3 h-3 text-yellow-500" /> {s.mood}
-                            </span>
-                            <span className="text-[11px] opacity-60 font-medium italic translate-y-[-1px]">{s.action}</span>
+                      <div key={idx} className={`flex items-center gap-4 px-6 py-3 rounded-3xl border transition-all ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-black/20 border-white/5'}`}>
+                         <span className={`text-[14px] font-black min-w-[70px] ${
+                           s.name === '사용자' ? 'text-[#A29BFE]' : 
+                           s.name.includes('아츠무') ? 'text-[#81ECEC]' : 
+                           s.name.includes('키타') ? 'text-[#A29BFE]' : 'text-primary'
+                         }`}>{s.name === '사용자' ? (userProfile?.name || '나') : s.name}</span>
+                         <div className="flex flex-col gap-0 border-l border-white/10 pl-4">
+                            <div className="flex items-center gap-2">
+                              <Zap className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+                              <span className="text-[12px] font-bold opacity-90">{s.mood}</span>
+                            </div>
+                            <span className="text-[11px] opacity-50 font-medium italic">{s.action}</span>
                          </div>
                       </div>
                     ))}
                   </div>
                 )}
 
-                {/* 2. Legacy Style Statuses */}
-                {legacyStatuses.length > 0 && (
-                  <div className="space-y-4">
-                    <button 
-                      onClick={() => setIsStatusOpen(!isStatusOpen)}
-                      className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'text-black/40 hover:text-primary' : 'text-white/40 hover:text-primary'} transition-colors ml-1`}
-                    >
-                      <span>캐릭터 상태창</span>
-                      {isStatusOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                    </button>
-
-                    {isStatusOpen && (
-                      <div className="space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
-                        {/* Favorability Bar */}
-                        {favorability !== undefined && !isStory && (
-                          <div className={`rounded-2xl border p-4 ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-white/5 border-white/5'}`}>
-                            <div className="flex items-center justify-between mb-2">
-                               <div className="flex items-center gap-2">
-                                  <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400" />
-                                  <span className="text-[10px] font-black uppercase tracking-widest text-rose-400">Favorability</span>
-                               </div>
-                               <span className="text-[10px] font-bold text-rose-400">{favorability}%</span>
-                            </div>
-                            <div className={`w-full h-1.5 rounded-full overflow-hidden ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/10' : 'bg-white/10'}`}>
-                               <div className="h-full bg-rose-400 transition-all duration-1000" style={{ width: `${favorability}%` }} />
-                            </div>
-                          </div>
-                        )}
-
-                        {legacyStatuses.map((block, idx) => (
-                          <div key={idx} className={`rounded-2xl border p-4 ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-white/5 border-white/5'}`}>
-                            <h5 className="text-[10px] font-black text-primary uppercase tracking-widest mb-3 flex items-center gap-2">
-                              <Zap className="w-3 h-3" /> {block.title}
-                            </h5>
-                            <div className="space-y-1.5">
-                              {block.content.split('\n').filter(l => l.trim()).map((line, lidx) => (
-                                <div key={lidx} className="text-[12px] opacity-80 flex items-start gap-2">
-                                   <span className="opacity-40 font-bold">•</span>
-                                   <span>{line.replace(/^[*-]\s*/, '')}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* 3. Relationships */}
+                {/* 2. Relationships (Chip Layout) */}
                 {relationships.length > 0 && (
-                  <div className={`px-4 py-3 rounded-2xl border ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-white/5 border-white/5'}`}>
-                    <div className="flex items-center gap-2 mb-2">
-                       <Heart className="w-3 h-3 text-rose-500 fill-rose-500" />
-                       <span className="text-[10px] font-black opacity-60 uppercase tracking-widest">Relationships</span>
+                  <div className={`px-6 py-4 rounded-3xl border ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-black/20 border-white/5'}`}>
+                    <div className="flex items-center gap-2 mb-3">
+                       <Heart className="w-3.5 h-4 text-rose-500 fill-rose-500" />
+                       <span className="text-[10px] font-black opacity-60 uppercase tracking-[0.2em]">Relationships</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                        {relationships.map((rel, idx) => (
-                         <div key={idx} className="bg-black/20 px-3 py-1 rounded-full border border-white/5 text-[11px] font-bold opacity-80">
+                         <div key={idx} className="bg-white/5 px-4 py-1.5 rounded-full border border-white/5 text-[11px] font-bold opacity-80 backdrop-blur-md">
                            {rel}
                          </div>
                        ))}
                     </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 4. Scenario Summary Block (New Aesthetic) */}
+            {isAi && (scenarioSummary.stats.length > 0 || scenarioSummary.status || scenarioSummary.bullets.length > 0 || scenarioSummary.turnCount) && (
+              <div className={`mt-6 pt-6 border-t ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'border-black/5' : 'border-white/5'} space-y-3`}>
+                {(scenarioSummary.stats.length > 0 || scenarioSummary.status) && (
+                  <div className="flex flex-col gap-1">
+                    {scenarioSummary.stats.length > 0 && (
+                      <div className="text-[12px] font-bold opacity-80 flex items-center gap-2">
+                        {scenarioSummary.stats.join('｜')}
+                      </div>
+                    )}
+                    {scenarioSummary.status && (
+                      <div className="text-[11px] font-black text-primary uppercase tracking-tighter">
+                        {scenarioSummary.status}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {scenarioSummary.bullets.length > 0 && (
+                  <div className="space-y-1">
+                    {scenarioSummary.bullets.map((bullet, idx) => (
+                      <div key={idx} className="text-[12px] opacity-70 flex items-start gap-2 leading-tight">
+                        <span className="opacity-40 font-bold mt-[2px]">•</span>
+                        <span>{bullet.replace(/^- \s*/, '')}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {scenarioSummary.turnCount && (
+                  <div className="text-[10px] font-black opacity-40 uppercase tracking-widest pt-2">
+                    {scenarioSummary.turnCount}
                   </div>
                 )}
               </div>

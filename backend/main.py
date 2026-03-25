@@ -648,13 +648,14 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             system_prompt += f"""
             [SCENARIO FORMAT RULES]
             1. **Header**: Every response MUST start with: `YYYY/MM/DD HH:MM｜Location｜[Turn Count]` (Turn Count is {turn_count})
-            2. **Narration**: Focus on atmospheric, descriptive writing. Use formatting like **bold** for sound effects or emphasis.
-            3. **Dialogue**: `CharacterName｜ "Dialogue Content"`
-            4. **Status Window & Relationships**: At the very end, include the following EXACT block:
-               [캐릭터이름 | 기분 | 행동] (모든 주요 캐릭터와 주인공 정보를 포함할 것)
+            2. **Narration**: Focus on atmospheric, descriptive writing.
+            3. **Dialogue**: Use the format `CharacterName"Dialogue Content"`. Example: `리리"안녕하세요."` (NO SPACE or SEPARATOR between name and quote)
+            4. **Status Card Data**: At the very end, include ONLY these blocks:
+               [캐릭터이름 | 기분 | 행동] (장면에 등장하는 모든 캐릭터와 사용자에 대해 작성)
                [관계｜이름이모지｜이름이모지｜...] 
-               (이모지 기준: 0-20😠, 21-40😒, 41-60😑, 61-80🤔, 81-100😊)
-               *절대 "𝕾𝖈𝖍𝖎𝖈𝖐𝖘𝖆𝖑" 문구를 포함하지 마십시오.*
+               엔딩까지 턴 수 {turn_count}/{max_turns}
+            
+            *CRITICAL*: Do NOT include any summary text (location, mood, thoughts, status list) outside the blocks above. THE STORY BODY MUST ONLY CONTAIN NARRATION AND DIALOGUE.
             """
 
     # 유저 정보 및 상세 페르소나(Lore) 주입
