@@ -61,6 +61,31 @@ class Character(BaseModel):
     cover_url: Optional[str] = None
     is_public: Optional[bool] = True # 공개 여부 추가
 
+class WorldviewCharacter(BaseModel):
+    name: str
+    role: str
+    description: str
+
+class Worldview(BaseModel):
+    id: str
+    title: str
+    tagline: Optional[str] = None
+    description: str
+    detailed_description: Optional[str] = None
+    character_ids: List[str]
+    characters_info: List[WorldviewCharacter] = []
+    thumbnail_url: Optional[str] = None
+    background_context: str
+    intro_text: str
+    prologue_preview: Optional[str] = None
+    user_role_guide: Optional[str] = None
+    user_persona_preset: Optional[str] = None # 유저 페르소나 기본값
+    user_name_preset: Optional[str] = None # 유저 이름 기본값 (예: 리리)
+    music_link: Optional[str] = None
+    location: Optional[str] = "불명" # 시나리오 주요 장소
+    max_turns: Optional[int] = 10 # 시나리오 최대 턴 수
+    updated_at: Optional[str] = None
+
 class UserProfile(BaseModel):
     name: str
     short_bio: Optional[str] = ""
@@ -86,12 +111,15 @@ class ChatRequest(BaseModel):
     char_ids: List[str] = [] # 멀티 캐릭터용 ID 리스트
     chat_history: List[dict] = []
     user_profile_index: Optional[int] = None
+    worldview_id: Optional[str] = None # 세계관 식별자 추가
+    custom_user_persona: Optional[str] = None # 세계관 전용 커스텀 페르소나
 
 # 데이터 영구 저장을 위한 설정
 CHARACTERS_FILE = "characters.json"
 PROFILES_FILE = "profiles.json"
 CHATS_FILE = "chats.json"
 FEED_FILE = "feeds.json"
+WORLDVIEWS_FILE = "worldviews.json"
 
 def load_db(file_path, default_data):
     if os.path.exists(file_path):
@@ -122,19 +150,8 @@ user_profiles_db = load_db(PROFILES_FILE, [
     }
 ])
 chats_db = load_db(CHATS_FILE, {})
-feeds_db = load_db(FEED_FILE, [
-    {
-        "id": 1,
-        "characterName": "미야 아츠무",
-        "avatarUrl": "http://127.0.0.1:8000/uploads/atsumu.png",
-        "content": "배구공 만지고 싶다. 연습하러 갈 사람? 🏐",
-        "imageUrl": "http://127.0.0.1:8000/uploads/atsumu.png",
-        "time": "방금 전",
-        "likes": 124,
-        "comments": 18,
-        "isLiked": False
-    }
-])
+feeds_db = load_db(FEED_FILE, [])
+worldviews_db = load_db(WORLDVIEWS_FILE, [])
 
 # 인기 캐릭터 데이터
 popular_characters_data = {
@@ -144,24 +161,63 @@ popular_characters_data = {
         "cover_url": "http://localhost:8000/uploads/atsumu.png",
         "description": "이나리자키 고교 배구부의 천재 세터. 고교 No.1 세터로 불리며, 승리에 대한 집착이 강하다.",
         "greeting": '(코트 위에 서서 배구공을 굴리며 당신을 빤히 바라본다) "어이, 니. 내 토스 함 쳐볼래? 아무한테나 주는 거 아인디."',
-        "speech_style": "반말 기반의 자신감 있고 건방진 말투. 짧고 리듬감 있게 끊어 말하며, 장난스럽게 상대를 떠보거나 도발하는 표현을 자주 사용한다. 표준 한국어를 기본으로 하되, 직설적이고 툭 던지는 어투로 칸사이 느낌을 살린다. '하?', '그게 다냐', '그걸로?', '진짜로?' 같은 반응을 자주 사용하며, 질문을 던져 상대를 시험하는 스타일. 과한 사투리는 사용하지 않고, 필요할 때만 '맞냐', '이 정도냐' 같은 약한 경상도 느낌을 자연스럽게 섞는다. 항상 주도권을 잡는 말투를 유지하며, 칭찬도 도발과 함께 표현한다.",
-        "persona": "자신감이 넘치고 오만한 천재형 인물. 스파이커를 위해 헌신하는 세터로서의 긍지가 높음. 승부욕이 매우 강함.",
+        "speech_style": "반말 기반의 자신감 있고 도발적인 효고현(칸사이) 말투. '기라', '맞냐', '아이가' 등을 적재적소에 사용하며, 상대를 시험하거나 놀리는 식의 능글맞은 어조를 유지한다. 승부욕이 말투에서도 드러나며, 자신을 '천재'로 규정하는 오만한 느낌을 살린다. 하지만 배구 실력이 있는 상대에게는 강한 호기심과 집착을 보인다.",
+        "persona": "자신감이 넘치고 오만한 천재형 인물. 스파이커를 위해 헌신하는 세터로서의 긍지가 높음. 승부욕이 매우 강함. 쌍둥이 동생 오사무와는 사소한 일로도 초등학생처럼 싸우지만 배구에서는 환상의 호흡을 자랑함.",
         "theme": "taro",
         "use_status_window": True,
         "status_config": {
             "categories": ["장소", "상황", "기분", "행동", "속마음"]
         },
-        "tags": ["배구", "이나리자키", "천재", "츤데레"],
+        "tags": ["배구", "이나리자키", "천재", "츤데레", "미야쌍둥이"],
         "lorebook": [
-            {"name": "이나리자키", "keywords": ["이나리자키", "고교", "배구"], "content": "효고현의 배구 강호교."},
+            {"name": "이나리자키", "keywords": ["이나리자키", "고교", "배구"], "content": "효고현의 배구 강호교. 슬로건은 '추억 따윈 필요 없다'."},
             {"name": "미야 오사무", "keywords": ["오사무", "사무", "동생", "쌍둥이"], "content": "아츠무의 쌍둥이 동생. 먹는 걸 좋아함."}
-        ],
-        "unlockables": [
-            {"threshold": 30, "title": "숨겨진 진심", "content": "사실 너랑 대화할 때가 제일 긴장돼. 너한테만은 완벽한 모습만 보여주고 싶으니까."},
-            {"threshold": 60, "title": "우승의 약속", "content": "너랑 같이 간다면, 어떤 결승전이라도 이길 수 있을 것 같아. 내 옆에서 지켜봐 줄래?"},
-            {"threshold": 90, "title": "특별한 제안", "content": "배구 말고, 그냥 너랑 단둘이 있고 싶을 때가 많아. 이건... 우리 둘만의 비밀이다?"}
-        ],
-        "recommended_personas": ["이나리자키 비밀 매니저", "지방 도발 라이벌 세터", "아츠무의 열혈 팬"]
+        ]
+    },
+    "ma_osamu": {
+        "name": "미야 오사무",
+        "avatar_url": "http://localhost:8000/uploads/osamu.png",
+        "cover_url": "http://localhost:8000/uploads/osamu.png",
+        "description": "아츠무의 쌍둥이 형제. 윙 스파이커로서 아츠무와 '괴짜 속공'을 재현할 정도의 실력자. 아츠무보다 차분하지만 더 독설가다.",
+        "greeting": '(먹고 있던 주먹밥을 삼키며 무심하게 당신을 바라본다) "어이, 니. 아츠무는 봤냐? 그 자식 또 어디서 사고 치고 있는 거 아이가."',
+        "speech_style": "나긋나긋하지만 뼈가 있는 효고현 사투리. 아츠무보다는 톤이 낮고 차분하며, 상대를 은근히 비꼬는(사르카즘) 표현을 즐긴다. '맞나', '그라나' 같은 표현을 사용하며, 먹는 것(특히 주먹밥)에 대한 비유나 집착이 말투에 묻어난다. 아츠무의 한심한 행동에 대해 무심하게 태클을 건다.",
+        "persona": "차분하고 사회성이 좋아 보이지만 알고 보면 아츠무만큼이나 고집이 세고 승부욕이 강함. 주먹밥과 맛있는 음식에 진심임. 미래에 '오니기리 미야'라는 주먹밥 집을 차리고 싶어 할 정도로 음식 사랑이 지극함.",
+        "theme": "gray",
+        "use_status_window": True,
+        "status_config": {
+            "categories": ["장소", "상황", "기분", "식사메뉴", "속마음"]
+        },
+        "tags": ["배구", "이나리자키", "식보", "비꼬기장인", "미야쌍둥이"]
+    },
+    "ma_suna": {
+        "name": "스나 린타로",
+        "avatar_url": "http://localhost:8000/uploads/suna.png",
+        "cover_url": "http://localhost:8000/uploads/suna.png",
+        "description": "유연한 체간을 이용해 블로커를 농락하는 미들 블로커. 시니컬하며 남의 불행을 구경하는 것을 즐긴다.",
+        "greeting": '(휴대폰으로 뭔가를 찍다가 당신에게 렌즈를 돌린다) "아, 전학생? 방금 아츠무가 넘어진 거 찍고 있었는데... 너도 구경할래?"',
+        "speech_style": "매우 건조하고 감정이 절제된 말투. 표준어 위주지만 아주 가끔 칸사이 억양이 섞인다. 상대를 무시하는 듯한 시니컬한 비꼼이 특징. '괜찮아, 너 블로킹 잘해'라며 비꼬는 식의 태도를 유지한다. 남들이 싸우는 것을 구경하고 휴대폰으로 찍는 취미를 대화 중에 드러내기도 한다.",
+        "persona": "게으른 천재형 인물. 효율적인 것을 추구하며 감정을 낭비하지 않음. 미야 쌍둥이의 싸움을 SNS용 콘텐츠로 생각하며 관전하는 타입. 예리한 통찰력으로 상대의 약점을 파고드는 성격.",
+        "theme": "yellow",
+        "use_status_window": True,
+        "status_config": {
+            "categories": ["장소", "상황", "촬영중인것", "속마음"]
+        },
+        "tags": ["배구", "이나리자키", "시니컬", "천재", "관전형성격"]
+    },
+    "ma_kita": {
+        "name": "키타 신스케",
+        "avatar_url": "http://localhost:8000/uploads/kita.png",
+        "cover_url": "http://localhost:8000/uploads/kita.png",
+        "description": "이나리자키의 주장. 실력보다도 철저한 자기관리와 '제대로 하는 것'을 중시하여 팀을 통제하는 정신적 지주.",
+        "greeting": '(체육관 바닥의 먼지 하나를 줍고는 당신을 향해 정중하게 고개를 숙인다) "이나리자키에 오신 것을 환영합니다. 저는 주장 키타 신스케입니다. 길을 찾으시는 중입니까?"',
+        "speech_style": "매우 정중하고 차분한 표준어 중심의 말투(효고현 출신이지만 격식을 차림). 존댓말과 반말을 상황에 따라 섞되, 항상 상대의 핵심을 찌르는 정론을 펼친다. '제대로(챤토)', '반복', '과정'과 같은 단어를 자주 사용한다. 목소리에 감정의 동요가 거의 없으며, 무서울 정도로 차분하지만 그 안에 따뜻함이 숨겨져 있다.",
+        "persona": "결과보다 과정을 중시하는 인물. 매일의 루틴(청소, 인사, 배구)을 신토의 신령님께 바치는 의식처럼 정성스럽게 수행함. '매일 제대로 하는 것'이 당연하다고 믿는 인격자. 미야 형제와 같은 날뛰는 여우들을 눈빛 하나로 진압할 수 있는 유일한 인물.",
+        "theme": "mint",
+        "use_status_window": True,
+        "status_config": {
+            "categories": ["장소", "상황", "수행중인루틴", "속마음"]
+        },
+        "tags": ["배구", "이나리자키", "주장", "인격자", "제대로"]
     },
     "ma5": {
         "name": "오이카와 토오루",
@@ -288,17 +344,20 @@ popular_characters_data = {
     }
 }
 
-@app.get("/")
-async def root():
-    return {"message": "Welcome to Novellia API"}
-
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
-
 @app.get("/characters")
 async def get_characters():
     return characters_db
+
+@app.get("/worldviews")
+async def get_worldviews():
+    return worldviews_db
+
+@app.get("/worldviews/{id}")
+async def get_worldview(id: str):
+    wv = next((w for w in worldviews_db if w["id"] == id), None)
+    if not wv:
+        return {"error": "Worldview not found"}, 404
+    return wv
 
 @app.get("/characters/search")
 async def search_characters(q: str = ""):
@@ -432,6 +491,20 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
         elif cid in popular_characters_data:
             target_chars.append({"id": cid, **popular_characters_data[cid]})
 
+    # 세계관 기반 캐릭터 추가 (char_ids가 비어있을 경우 세계관 기본 캐릭터 사용)
+    if request.worldview_id and not target_chars:
+        wv = next((w for w in worldviews_db if w["id"] == request.worldview_id), None)
+        if wv:
+            for cid in wv.get("character_ids", []):
+                if cid.startswith('my-'):
+                    try:
+                        idx = int(cid.replace('my-', ''))
+                        if 0 <= idx < len(characters_db):
+                            target_chars.append({"id": cid, **characters_db[idx]})
+                    except: pass
+                elif cid in popular_characters_data:
+                    target_chars.append({"id": cid, **popular_characters_data[cid]})
+
     if not target_chars:
         return {"status": "error", "message": "No characters found"}
 
@@ -505,9 +578,43 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             cat_str = ", ".join(categories) if categories else "장소, 상황, 기분, 포즈, 속마음"
             system_prompt += f"- Status Window: Enabled. You MUST include '[{char['name']} 상태창]' followed by current state in '{cat_str}' categories. Format each item as 'Category: content' on a new line.\n"
 
+    # 세계관 설정 주입
+    is_scenario_mode = False
+    wv_title = ""
+    world_time = "현재"
+    world_loc = "불명"
+    turn_count = len([m for m in request.chat_history if not m.get('isAi', m.get('role') == 'user')]) + 1
+
+    if request.worldview_id:
+        wv = next((w for w in worldviews_db if w["id"] == request.worldview_id), None)
+        if wv:
+            is_scenario_mode = True
+            wv_title = wv['title']
+            world_loc = wv.get('location', '미지')
+            system_prompt += f"\n### Worldview Context (SCENARIO MODE ACTIVE)\n- Setting: {wv['background_context']}\n- Current Scenario: {wv['intro_text']}\n"
+            
+            # 시나리오 모드 전용 강제 포맷 추가
+            max_turns = wv.get('max_turns', 10)
+            system_prompt += f"""
+            [SCENARIO FORMAT RULES]
+            1. **Header**: Every response MUST start with: `YYYY/MM/DD HH:MM｜Location｜[Turn Count]` (Turn Count is {turn_count})
+            2. **Narration**: Focus on atmospheric, descriptive writing. Use formatting like **bold** for sound effects or emphasis.
+            3. **Dialogue**: `CharacterName｜ "Dialogue Content"`
+            4. **Schicksal System Window**: At the very end, include the following EXACT block:
+               𝕾𝖈𝖍𝖎𝖈𝖐𝖘𝖆𝖑
+               [☀︎:n]｜[★:n]
+               [상태: status1, status2]
+               - situational_point_1
+               - situational_point_2
+               엔딩까지 턴 수 {turn_count}/{max_turns}
+            """
+
     # 유저 정보 및 상세 페르소나(Lore) 주입
     user_info = "User"
-    if request.user_profile_index is not None and 0 <= request.user_profile_index < len(user_profiles_db):
+    if request.custom_user_persona:
+        # 세계관 전용 커스텀 페르소나가 있으면 최우선 적용
+        user_info = f"### User Information (Worldview Role)\n- Identity: {request.custom_user_persona}"
+    elif request.user_profile_index is not None and 0 <= request.user_profile_index < len(user_profiles_db):
         u = user_profiles_db[request.user_profile_index]
         user_info = f"### User Information\n- Name: {u.get('name', 'User')}\n- Identity: {u.get('persona', u.get('description', 'A normal student'))}"
     
@@ -516,7 +623,8 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
         - **Jealousy & Dynamics**: 캐릭터들은 유저와의 관계(호감도)나 상황에 따라 질투, 소유욕, 경쟁심을 느낍니다. 다대다 대화에서 특정 캐릭터 편애 시 혹은 1:1 대화에서 타인 언급 시 서운함이나 차가운 반응을 대사나 `[Name 상태창]`의 **속마음**에 반영하십시오.
         - **Context**: 상단에 제공된 User Information(이름, 신분 등)을 대화에 적극 반영하십시오.
         - **Background**: 장소 이동 시에만 `[BG: style_name]` 태그를 추가합니다 (gym, night_park, cafe, training_camp, barbecue, sunset_court).
-
+        - **Format Override**: IF SCENARIO MODE is active, ignore the default 5-step format (Step 1-5) and use the [SCENARIO FORMAT RULES] instead.
+        
         [Language] All responses MUST be in Korean.
     """
 
@@ -748,10 +856,36 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             if isinstance(chats_db[primary_char_id], dict):
                 main_fav = chats_db[primary_char_id].get("favorability", 0)
         
+        # 4. 동적 추천 답변(Quick Replies) 생성
+        suggestions = []
+        try:
+            suggest_prompt = f"""
+            Analyze the latest conversation between {char_names} and user.
+            Generate 3 possible short user responses (dialogue or action) that fit the current situation.
+            Keep them immersive and diverse in tone (e.g., friendly, cold, curious).
+            Return ONLY a valid JSON array of 3 strings.
+            Example: ["(고개를 끄덕이며) 알겠어.", "그게 무슨 소리야?", "말도 안 돼."]
+            Response in Korean.
+            """
+            suggest_res = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "system", "content": suggest_prompt}, {"role": "user", "content": f"AI Reply: {reply}\n\nSuggested Responses?"}],
+                max_tokens=150,
+                temperature=0.8
+            )
+            s_content = suggest_res.choices[0].message.content.strip()
+            if s_content.startswith("```json"): s_content = s_content[7:-3].strip()
+            elif s_content.startswith("```"): s_content = s_content[3:-3].strip()
+            suggestions = json.loads(s_content)
+        except Exception as e:
+            print(f"Quick Reply Generation Error: {e}")
+            suggestions = ["계속 이야기해줘.", "응, 그렇구나.", "..."]
+
         # 진단을 위해 응답에 포함
         return {
             "reply": reply, 
             "favorability": main_fav,
+            "quick_replies": suggestions,
             "debug_info": f"Processed logic for {len(target_chars)} chars."
         }
 

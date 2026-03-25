@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import CharacterCard from '@/components/Main/CharacterCard';
-import { Sparkles, UserCheck, Search, X } from 'lucide-react';
+import { Sparkles, UserCheck, Search, X, ChevronRight } from 'lucide-react';
 
 const popularCharacters = [
   {
@@ -66,6 +66,11 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [userName, setUserName] = useState<string | null>(null);
+
+  useEffect(() => {
+    setUserName(localStorage.getItem('novellia_user_name'));
+  }, []);
 
   useEffect(() => {
     const fetchMyCharacters = async () => {
@@ -103,18 +108,54 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background pb-32">
+      {/* Onboarding Modal */}
+      {!userName && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 animate-in fade-in duration-500">
+          <div className="bg-surface border border-white/10 p-8 rounded-3xl max-w-md w-full shadow-2xl space-y-6">
+            <div className="space-y-2 text-center">
+              <h2 className="text-2xl font-black text-white">반가워요! 당신의 이름은?</h2>
+              <p className="text-gray-400 text-sm">Novellia에서 불릴 이름을 알려주세요.</p>
+            </div>
+            <input 
+              type="text" 
+              placeholder="이름 입력..." 
+              autoFocus
+              className="w-full bg-black/20 border border-white/5 rounded-xl py-4 px-6 text-white focus:outline-none focus:border-primary/50 transition-all text-center text-lg font-bold"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const val = (e.target as HTMLInputElement).value.trim();
+                  if (val) {
+                    localStorage.setItem('novellia_user_name', val);
+                    setUserName(val);
+                  }
+                }
+              }}
+            />
+            <p className="text-[10px] text-gray-600 text-center">직접 만든 페르소나와는 별개로 불리는 닉네임입니다.</p>
+          </div>
+        </div>
+      )}
+
       {/* Hero Section */}
       <section className="px-6 pt-16 md:pt-24 pb-12 text-center md:text-left md:px-12 max-w-6xl">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold mb-6">
           <Sparkles className="w-3.5 h-3.5" /> Novellia Beta Open
         </div>
-        <h1 className="text-4xl md:text-6xl font-black tracking-tight mb-4 text-white">
-          이야기가 현실이 되는 곳,<br />
-          <span className="text-primary">Novellia</span>
-        </h1>
-        <p className="text-gray-400 text-sm md:text-lg max-w-[450px] leading-relaxed mb-8">
-          당신의 상상 속 캐릭터가 살아 숨 쉬는 공간. 지금 가장 핫한 캐릭터들과 잊지 못할 이야기를 시작하세요.
-        </p>
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+          <div>
+            <h1 className="text-4xl md:text-6xl font-black tracking-tight mb-4 text-white">
+              이야기가 현실이 되는 곳,<br />
+              <span className="text-primary">Novellia</span>
+            </h1>
+            <p className="text-gray-400 text-sm md:text-lg max-w-[450px] leading-relaxed mb-8">
+              당신의 상상 속 캐릭터가 살아 숨 쉬는 공간. {userName && <span className="text-white font-bold">{userName}</span>}님, 지금 시작하세요.
+            </p>
+          </div>
+          
+          <a href="/worldviews" className="flex-shrink-0 mb-8 inline-flex items-center gap-3 bg-white text-black px-8 py-4 rounded-2xl font-black hover:bg-primary hover:text-white transition-all transform hover:scale-105 active:scale-95 shadow-xl">
+            세계관 탐험하기 <ChevronRight className="w-5 h-5" />
+          </a>
+        </div>
 
         {/* Search Bar */}
         <div className="relative max-w-xl group">

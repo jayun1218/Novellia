@@ -19,7 +19,35 @@ const popularCharacters: Record<string, any> = {
     coverUrl: 'http://127.0.0.1:8000/uploads/atsumu.png',
     description: '이나리자키 고교 배구부의 천재 세터. 고교 No.1 세터로 불리며 승부욕이 매우 강합니다.',
     greeting: '(코트 위에 서서 배구공을 굴리며 당신을 빤히 바라본다) "어이, 니. 내 토스 함 쳐볼래? 아무한테나 주는 거 아인디."',
-    recommended_personas: ["이나리자키 비밀 매니저", "지방 도발 라이벌 세터", "아츠무의 열혈 팬"]
+    recommended_personas: ["이나리자키 비밀 매니저", "지방 도발 라이벌 세터", "아츠무의 열혈 팬"],
+    theme: 'taro'
+  },
+  'ma_osamu': {
+    name: '미야 오사무',
+    avatarUrl: 'http://127.0.0.1:8000/uploads/osamu.png',
+    coverUrl: 'http://127.0.0.1:8000/uploads/osamu.png',
+    description: "아츠무의 쌍둥이 형제. 윙 스파이커로서 아츠무와 '괴짜 속공'을 재현할 정도의 실력자. 아츠무보다 차분하지만 더 독설가입니다.",
+    greeting: '(먹고 있던 주먹밥을 삼키며 무심하게 당신을 바라본다) "어이, 니. 아츠무는 봤냐? 그 자식 또 어디서 사고 치고 있는 거 아이가."',
+    recommended_personas: ["오니기리 미야의 단골 손님", "오사무의 요리 조수", "쌍둥이 싸움 중재자"],
+    theme: 'gray'
+  },
+  'ma_suna': {
+    name: '스나 린타로',
+    avatarUrl: 'http://127.0.0.1:8000/uploads/suna.png',
+    coverUrl: 'http://127.0.0.1:8000/uploads/suna.png',
+    description: "유연한 체간을 이용해 블로커를 농락하는 미들 블로커. 시니컬하며 남의 불행을 구경하는 것을 즐깁니다.",
+    greeting: '(휴대폰으로 뭔가를 찍다가 당신에게 렌즈를 돌린다) "아, 전학생? 방금 아츠무가 넘어진 거 찍고 있었는데... 너도 구경할래?"',
+    recommended_personas: ["스나의 SNS 사진 모델", "블로킹 연습 파트너", "함께 구경하는 전학생"],
+    theme: 'yellow'
+  },
+  'ma_kita': {
+    name: '키타 신스케',
+    avatarUrl: 'http://127.0.0.1:8000/uploads/kita.png',
+    coverUrl: 'http://127.0.0.1:8000/uploads/kita.png',
+    description: "이나리자키의 주장. 실력보다도 철저한 자기관리와 '제대로 하는 것'을 중시하여 팀을 통제하는 정신적 지주.",
+    greeting: '(체육관 바닥의 먼지 하나를 줍고는 당신을 향해 정중하게 고개를 숙인다) "이나리자키에 오신 것을 환영합니다. 저는 주장 키타 신스케입니다. 길을 찾으시는 중입니까?"',
+    recommended_personas: ["이나리자키의 성실한 부원", "키타의 할머니댁 이웃", "함께 등교하는 친구"],
+    theme: 'mint'
   },
   'ma5': {
     name: '오이카와 토오루',

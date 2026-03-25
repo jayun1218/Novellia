@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, User } from 'lucide-react';
+import { ChevronDown, ChevronUp, User, Sparkles, Clock } from 'lucide-react';
 
 interface MessageProps {
   content: string;
   isAi: boolean;
+  role?: string;
   timestamp: string;
   settings?: {
     theme: string;
@@ -29,6 +30,7 @@ const Message: React.FC<MessageProps> = ({
   activeCharacters = [], 
   favorability, 
   imageUrl, 
+  role,
   onAvatarClick 
 }) => {
   const [isStatusOpen, setIsStatusOpen] = useState(false);
@@ -73,10 +75,21 @@ const Message: React.FC<MessageProps> = ({
   const speaker = getSpeakerInfo();
   
   const parseContent = (text: string) => {
+    // 1. Scenario Header Parsing (YYYY/MM/DD HH:MM｜Location｜[Turn])
+    const headerRegex = /^(\d{4}\/\d{2}\/\d{2}\s\d{2}:\d{2}｜.*?｜\[\d+\])\n*/;
+    const headerMatch = text.match(headerRegex);
+    const header = headerMatch ? headerMatch[1] : null;
+    let remainingText = header ? text.replace(headerRegex, "") : text;
+
+    // 2. Schicksal Block Parsing (𝕾𝖈𝖍𝖎𝖈𝖐𝖘𝖆𝖑 ... 턴 수 n/10)
+    const schicksalRegex = /(𝕾𝖈𝖍𝖎𝖈𝖐𝖘𝖆𝖑[\s\S]*?(?:엔딩까지 턴 수 \d+\/\d+|$))/;
+    const schicksalMatch = remainingText.match(schicksalRegex);
+    const schicksalContent = schicksalMatch ? schicksalMatch[1] : null;
+    remainingText = schicksalContent ? remainingText.replace(schicksalRegex, "") : remainingText;
+
     const statusRegex = /\[(.*?)상태창\]([\s\S]*?)(?=\[|$)/g;
     const statusBlocks: { title: string; content: string }[] = [];
     
-    // 서비스 태그(행동, 배경, 호감도 등) 제거 헬퍼
     const cleanSystemTags = (t: string) => {
       return t.replace(/\[.*? 감정:\s*.*?\]/g, "")
               .replace(/\[BG:\s*.*?\]/g, "")
@@ -84,57 +97,62 @@ const Message: React.FC<MessageProps> = ({
               .replace(/\[FEED:\s*.*?\]/g, "");
     };
 
-    // 화자 이름 접두사 제거 헬퍼 (멀티라인 지원)
     const stripSpeakerPrefix = (t: string) => {
       return t.split('\n').map(line => line.replace(/^(?:\[.*?\]|.*?[:：])\s*/, "")).join('\n');
     };
 
-    let dialogue = cleanSystemTags(text);
-    dialogue = dialogue.replace(/"/g, ""); // 모든 큰따옴표 제거
+    let mainText = cleanSystemTags(remainingText);
     
     let match;
-    const originalText = text;
+    const originalText = remainingText;
     while ((match = statusRegex.exec(originalText)) !== null) {
       const cleanedStatus = stripSpeakerPrefix(cleanSystemTags(match[2].trim()));
       statusBlocks.push({ title: match[1].trim() + " 상태창", content: cleanedStatus });
-      dialogue = dialogue.replace(match[0], "");
+      mainText = mainText.replace(match[0], "");
     }
 
-    dialogue = stripSpeakerPrefix(dialogue);
-    return { dialogue: dialogue.trim(), statusBlocks };
+    mainText = stripSpeakerPrefix(mainText);
+    return { 
+      header,
+      dialogue: mainText.trim(), 
+      statusBlocks,
+      schicksalContent
+    };
   };
 
-  const { dialogue, statusBlocks } = parseContent(content);
+  const { header, dialogue, statusBlocks, schicksalContent } = parseContent(content);
+  const isGuide = role === 'guide';
 
   const formatDialogue = (text: string) => {
     const cleanText = text.replace(/\[.*?호감도:\s*[+-]?\d+\]/g, '').trim();
-    const parts = cleanText.split(/(\*.*?\*|\(.*?\))/g);
+    // 캐릭터 이름 ｜ "대사" 패턴 하이라이트
+    const parts = cleanText.split(/(\*.*?\*|\(.*?\)|\S+?\s*｜\s*".*?")/g);
+    
     return parts.map((part, i) => {
       if ((part.startsWith('*') && part.endsWith('*')) || (part.startsWith('(') && part.endsWith(')'))) {
         let actionColor = isAi ? 'text-primary' : 'text-white/60';
         if (theme === 'oreo' || theme === 'taro') actionColor = isAi ? 'text-gray-500' : 'text-black/40';
-        if (theme === 'mint') actionColor = isAi ? 'text-[#40916C]' : 'text-white/70';
-        if (theme === 'orange') actionColor = isAi ? 'text-[#D48806]' : 'text-white/70';
-        if (theme === 'red') actionColor = isAi ? 'text-[#C53030]' : 'text-white/70';
         return <span key={i} className={`${actionColor} italic font-normal`}>{part}</span>;
+      }
+      
+      const charDialogueMatch = part.match(/^(\S+?)\s*｜\s*"(.*?)"$/);
+      if (charDialogueMatch) {
+         return (
+           <span key={i} className="block my-2" style={{ textIndent: 0 }}>
+             <span className="font-black text-primary mr-2 tracking-tight opacity-90">{charDialogueMatch[1]}</span>
+             <span className={isAi ? "text-gray-100" : "text-white"}>"{charDialogueMatch[2]}"</span>
+           </span>
+         );
       }
       return part;
     });
   };
 
   const getBubbleStyle = () => {
+    if (isGuide) return 'bg-white/5 border-l-2 border-primary/50 text-gray-300';
     if (isAi) {
-      if (theme === 'oreo' || theme === 'taro') return 'bg-white text-black border border-black/5 shadow-sm';
-      if (theme === 'mint') return 'bg-[#F0F9F6] text-[#2D6A4F] border border-[#94D2BD]/30';
-      if (theme === 'orange') return 'bg-[#FFF8F0] text-[#D48806] border border-[#FF9F1C]/30';
-      if (theme === 'red') return 'bg-[#FFF5F5] text-[#C53030] border border-[#E63946]/30';
-      return 'bg-surface text-gray-100 border border-white/10';
+      return 'bg-surface/40 backdrop-blur-sm text-gray-100 border border-white/5';
     }
-    if (theme === 'oreo') return 'bg-[#222124] text-white';
-    if (theme === 'taro') return 'bg-[#C8B6FF] text-black';
-    if (theme === 'mint') return 'bg-[#94D2BD] text-white shadow-md';
-    if (theme === 'orange') return 'bg-[#FF9F1C] text-white shadow-md';
-    if (theme === 'red') return 'bg-[#E63946] text-white shadow-md shadow-red-500/20';
     return 'bg-primary text-white shadow-md';
   };
 
@@ -157,14 +175,21 @@ const Message: React.FC<MessageProps> = ({
         </div>
       )}
 
-      <div className={`flex flex-col max-w-[80%] ${isAi ? 'items-start' : 'items-end'}`}>
+      <div className={`flex flex-col max-w-[85%] ${isAi ? 'items-start' : 'items-end'}`}>
         {(isAi || showProfile) && (
-          <span className={`text-[11px] font-bold mb-1 px-1 ${isAi ? 'text-gray-400' : 'text-primary'}`}>
+          <span className={`text-[10px] font-black uppercase tracking-tighter mb-1 px-1 ${isAi ? 'text-gray-500' : 'text-primary'}`}>
             {speaker.name}
           </span>
         )}
         
-        <div className={`rounded-2xl overflow-hidden transition-all duration-300 ${getBubbleStyle()} ${
+        {header && (
+          <div className="mb-2 px-3 py-1 bg-white/5 rounded-full border border-white/5 text-[10px] text-gray-400 font-bold flex items-center gap-2">
+             <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+             {header}
+          </div>
+        )}
+
+        <div className={`rounded-2xl overflow-hidden transition-all duration-300 shadow-2xl ${getBubbleStyle()} ${
           isAi ? 'rounded-tl-none' : 'rounded-tr-none'
         }`}>
           {imageUrl && (
@@ -172,11 +197,71 @@ const Message: React.FC<MessageProps> = ({
               <img src={imageUrl} alt="Scene" className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" />
             </div>
           )}
-          <div className="px-5 py-3.5">
-            <p className="text-[15px] leading-relaxed whitespace-pre-wrap font-medium tracking-tight">
+          <div className="px-6 py-5">
+            {isGuide && (
+              <div className="flex items-center gap-1.5 mb-3 text-red-500 font-black text-xs uppercase tracking-widest">
+                <Sparkles className="w-3.5 h-3.5" />
+                ! 플레이 가이드
+              </div>
+            )}
+            <div className={`leading-relaxed whitespace-pre-wrap font-medium tracking-tight ${isGuide ? 'text-sm text-gray-400 italic' : 'text-[15px]'}`}>
               {formatDialogue(dialogue)}
-            </p>
+            </div>
           </div>
+
+          {/* Schicksal Block */}
+          {schicksalContent && (
+             <div className="px-6 pb-6 mt-2">
+                <div className="bg-black/40 rounded-xl border border-white/5 p-4 space-y-4 shadow-inner">
+                   <div className="text-primary font-serif font-black italic text-xl tracking-[0.2em] border-b border-primary/20 pb-2 mb-3">
+                      𝕾𝖈𝖍𝖎𝖈𝖐𝖘𝖆𝖑
+                   </div>
+                   
+                   {/* Point Icons Block */}
+                   <div className="flex items-center gap-3 text-[10px] font-black tracking-widest text-gray-500 uppercase">
+                      {schicksalContent.includes('☀︎') && (
+                         <span className="bg-white/5 px-2 py-1 rounded border border-white/5 flex items-center gap-1">
+                            <span className="text-primary">☀︎</span> {schicksalContent.match(/☀︎:(\d+)/)?.[1] || '0'}
+                         </span>
+                      )}
+                      {schicksalContent.includes('★') && (
+                         <span className="bg-white/5 px-2 py-1 rounded border border-white/5 flex items-center gap-1">
+                            <span className="text-rose-500">★</span> {schicksalContent.match(/★:(\d+)/)?.[1] || '0'}
+                         </span>
+                      )}
+                   </div>
+
+                   {/* Status Badges */}
+                   <div className="flex flex-wrap gap-2 py-1">
+                      {schicksalContent.match(/\[상태:\s*(.*?)\]/) && 
+                         schicksalContent.match(/\[상태:\s*(.*?)\]/)?.[1].split(',').map((status, si) => (
+                            <span key={si} className="text-[10px] px-2 py-1 bg-white/5 text-gray-300 rounded font-black border border-white/10 uppercase tracking-wider">
+                               {status.trim()}
+                            </span>
+                         ))
+                      }
+                   </div>
+
+                   {/* Bullet Points */}
+                   <div className="space-y-2 py-1">
+                      {schicksalContent.split('\n').filter(l => l.trim().startsWith('-')).map((point, pi) => (
+                         <div key={pi} className="text-[13px] text-gray-400 flex items-start gap-2 leading-snug">
+                            <span className="text-primary mt-1 text-[10px]">▶</span>
+                            <span>{point.replace(/^- \s*/, '')}</span>
+                         </div>
+                      ))}
+                   </div>
+
+                   {/* Turn Counter */}
+                   <div className="pt-3 border-t border-white/5 flex justify-between items-center">
+                      <span className="text-[9px] text-gray-600 font-bold tracking-widest uppercase">system log synchronized</span>
+                      <span className="text-[10px] text-primary font-black tracking-tighter">
+                         {schicksalContent.match(/엔딩까지 턴 수 \d+\/\d+/) || "TRACKING..."}
+                      </span>
+                   </div>
+                </div>
+             </div>
+          )}
 
           {isAi && settings?.showStatus && statusBlocks.length > 0 && (
             <div className={`mt-2 pt-3 border-t ${theme === 'basic' ? 'border-white/5' : 'border-black/5'}`}>
