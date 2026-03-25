@@ -649,14 +649,19 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             [SCENARIO FORMAT RULES]
             1. **Header**: Every response MUST start with: `YYYY/MM/DD HH:MM｜Location｜[Turn Count]` (Turn Count is {turn_count})
             2. **Narration**: Focus on atmospheric, descriptive writing.
-            3. **Dialogue**: Use the format `CharacterName"Dialogue Content"`. Example: `리리"안녕하세요."` (NO SPACE or SEPARATOR between name and quote)
+            3. **Dialogue**: Use the format `CharacterName"Dialogue Content"`. Example: `리리"안녕하세요."`
             4. **Status Card Data**: At the very end, include ONLY these blocks:
-               [캐릭터이름 | 기분 | 행동] (장면에 등장하는 모든 캐릭터와 사용자에 대해 작성)
-               [관계｜이름이모지｜이름이모지｜...] 
+               [캐릭터이름 | 기분 | 행동] (장면에 등장하는 모든 캐릭터와 사용자에 대해 작성. 반드시 이 대괄호 형식을 지키십시오.)
+               [관계｜이름이모지｜이름이모지｜...] (반드시 포함)
                엔딩까지 턴 수 {turn_count}/{max_turns}
             
-            *CRITICAL*: Do NOT include any summary text (location, mood, thoughts, status list) outside the blocks above. THE STORY BODY MUST ONLY CONTAIN NARRATION AND DIALOGUE.
+            [NEGATIVE CONSTRAINTS - VERY IMPORTANT]
+            - **NO PLAIN TEXT SUMMARY**: 메시지 하단에 '장소: ...', '상황: ...' 등 평문으로 된 상태 요약을 절대 적지 마십시오. 모든 상태 정보는 반드시 `[...]` 블록 안에만 존재해야 합니다.
+            - THE STORY BODY MUST END with dialogue or narration. NO keywords like 'neutral', '없음' should follow the story.
+            - Do NOT use bullets (`- `) for status information. Use the `[Name | Mood | Action]` format only.
+
             """
+    circular_ref_check = False
 
     # 유저 정보 및 상세 페르소나(Lore) 주입
     user_info = "User"
@@ -1214,18 +1219,18 @@ async def get_scenarios():
     return SCENARIOS
 
 @app.post("/chat/{id}/observe")
-async def observe_chat(id: str, request: ChatRequest):
+async def observe_chat(id: str, request: ChatRequest, background_tasks: BackgroundTasks):
     # 유저 메시지 없이 캐릭터들끼리 대화하도록 유도하는 시스템 메시지 추가
     system_instruction = "\n[SYSTEM: 유저는 현재 대화를 관찰 중입니다. 캐릭터들은 현재 상황과 서로의 성격에 기반하여 유저의 개입 없이 자연스럽게 대화를 이어가세요. 서로를 부르거나 도발하며 티격태격하는 생동감 넘치는 상호작용을 보여주세요. 절대 유저에게 직접 말을 걸지 마세요.]"
     
     modified_history = request.chat_history + [{"role": "system", "content": system_instruction}]
     
     # 기존 chat 엔드포인트 로직 재사용
-    # (id를 함께 전달하지 않고 ChatRequest에 태워서 보냄)
     return await chat(ChatRequest(
         message="[관찰 모드: 계속 대화해줘]", 
         chat_history=modified_history,
         user_profile_index=request.user_profile_index,
         char_id=id,
         char_ids=request.char_ids
-    ))
+    ), background_tasks)
+

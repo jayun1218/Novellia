@@ -234,6 +234,7 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
             id: Date.now() + idx + Math.random(),
             content: part.trim(),
             isAi: true,
+            role: 'observation',
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           };
         });

@@ -120,7 +120,8 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const [bgUrl, setBgUrl] = useState<string | null>(null);
   const [settings, setSettings] = useState({
     theme: 'basic',
-    showProfile: true,
+    showProfile: false,
+
     showStatus: true,
     autoBg: false,
     haptic: true
@@ -448,6 +449,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
             id: Date.now() + idx + Math.random(),
             content: part.trim(), // [이름] 태그를 포함한 전체 내용을 전달
             isAi: true,
+            role: 'observation',
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           };
         });

@@ -95,10 +95,11 @@ const Message: React.FC<MessageProps> = ({
     }
 
     // 3. Legacy Status Parsing [Name 상태창]
-    const legacyStatusRegex = /\[(.*?)상태창\]([\s\S]*?)(?=\[|$)/g;
+    const legacyStatusRegex = /\[(.*?)\s*상태창\]([\s\S]*?)(?=\[|$)/g;
     const legacyStatuses: { title: string; content: string }[] = [];
     
-    while ((match = legacyStatusRegex.exec(remainingText)) !== null) {
+    const legacyMatches = Array.from(remainingText.matchAll(legacyStatusRegex));
+    for (const match of legacyMatches) {
       legacyStatuses.push({ 
         title: match[1].trim() + " 상태창", 
         content: match[2].trim() 
@@ -142,13 +143,17 @@ const Message: React.FC<MessageProps> = ({
               .replace(/\[상태:\s*.*?\]/g, "")
               .replace(/^- .*/gm, "")
               .replace(/^-{3,}/gm, "") // 구분선(---, ---- 등) 제거
-              .replace(/엔딩까지 턴 수 \d+\/\d+/g, "");
+              .replace(/엔딩까지 턴 수 \d+\/\d+/g, "")
+              // 본문 하단에 남은 잔여 키워드들 (기분, 장소, 소괄호 속마음 등) 제거
+              .replace(/^(?:neutral|없음|보통|공격적|호의적|호기심|평온|긴장|분노|슬픔|기쁨)\s*$/gm, "")
+              .replace(/^\(.*?(\.|\?|!)\)\s*$/gm, ""); // (속마음.) 형태 제거
     };
 
     const stripSpeakerPrefix = (t: string) => {
       // 따옴표(")가 바로 뒤에 붙는 이름(대화문)은 삭제하지 않고 보존함
+      // [수정] 공백 및 특수 패턴([^\s.?!,｜"()]{1,10}\s*")까지 허용하여 유연한 화자 인식 지원
       return t.split('\n').map(line => {
-        if (line.match(/^\S+?".*?"/)) return line;
+        if (line.match(/^[^\s.?!,｜"()]{1,10}\s*".*?"/)) return line;
         return line.replace(/^(?:\[.*?\]|.*?[:：])\s*/, "");
       }).join('\n');
     };
@@ -168,10 +173,18 @@ const Message: React.FC<MessageProps> = ({
 
   const { header, dialogue, scenarioStatuses, legacyStatuses, relationships, scenarioSummary } = parseContent(content);
   const isGuide = role === 'guide';
+  const isObservationRole = role === 'observation';
+  const isNarrator = speaker.name === 'Scenario' || speaker.name === 'Guide' || speaker.name === '나레이션';
+  const hideStatus = isGuide || isObservationRole || isNarrator;
+  const hideName = isNarrator;
+
 
   const formatDialogue = (text: string) => {
-    // 이름"대화" 또는 이름｜ "대화" 형태 모두 지원
-    const parts = text.split(/(\*.*?\*|\(.*?\)|\S+?\s*(?:｜\s*)?".*?")/g);
+    // 이름"대화" (구분자 없는 포맷)는 시나리오 모드에서만 오동작 방지를 위해 제한적 지원
+    // [개선] 이름 부분에 . , ? ! 등 문장 부호가 포함되지 않도록 범위를 제한 ([^\s.?!,｜"()]{1,10})
+    const parts = isStory 
+      ? text.split(/(\*.*?\*|\(.*?\)|[^\s.?!,｜"()]{1,10}\s*(?:｜\s*)?".*?")/g)
+      : text.split(/(\*.*?\*|\(.*?\)|[^\s.?!,｜"()]{1,10}\s*｜\s*".*?")/g);
     
     return parts.map((part, i) => {
       if ((part.startsWith('*') && part.endsWith('*')) || (part.startsWith('(') && part.endsWith(')'))) {
@@ -180,7 +193,10 @@ const Message: React.FC<MessageProps> = ({
         return <span key={i} className={`${actionColor} italic font-medium`}>{part}</span>;
       }
       
-      const charDialogueMatch = part.match(/^(\S+?)\s*(?:｜\s*)?"(.*?)"$/);
+      const charDialogueMatch = isStory 
+        ? part.match(/^([^\s.?!,｜"()]{1,10})\s*(?:｜\s*)?"(.*?)"$/)
+        : part.match(/^([^\s.?!,｜"()]{1,10})\s*｜\s*"(.*?)"$/);
+
       if (charDialogueMatch) {
          return (
            <span key={i} className="block my-1.5" style={{ textIndent: 0 }}>
@@ -220,6 +236,8 @@ const Message: React.FC<MessageProps> = ({
   return (
     <div className={`flex w-full mb-8 gap-4 ${isAi ? 'flex-row' : 'flex-row-reverse'}`}>
       {(isAi || showProfile) && (
+
+
         <div className="flex-shrink-0">
           <div className="w-10 h-10 rounded-2xl overflow-hidden border border-white/10 shadow-xl bg-zinc-900">
             <img src={speaker.avatar} className="w-full h-full object-cover" alt="" />
@@ -235,6 +253,18 @@ const Message: React.FC<MessageProps> = ({
           </div>
         )}
 
+        {isAi && speaker.name && !header && !hideName && (
+
+          <span className="text-[11px] font-black opacity-40 mb-1.5 ml-1 uppercase tracking-widest">{speaker.name}</span>
+        )}
+
+        {!isAi && speaker.name && !header && settings?.showProfile && (
+          <span className="text-[11px] font-black opacity-40 mb-1.5 mr-1 uppercase tracking-widest">{speaker.name}</span>
+        )}
+
+
+
+
         <div className={`rounded-3xl p-6 shadow-2xl transition-all duration-300 ${getBubbleStyle()} ${isAi ? 'rounded-tl-none' : 'rounded-tr-none'}`}>
           {imageUrl && (
             <img src={imageUrl} alt="Scene" className="w-full rounded-2xl mb-4 border border-white/10" />
@@ -245,53 +275,180 @@ const Message: React.FC<MessageProps> = ({
               {formatDialogue(dialogue)}
             </div>
 
-            {/* AI Status Windows (Hybrid) */}
-            {isAi && (isStory || settings?.showStatus) && (scenarioStatuses.length > 0 || legacyStatuses.length > 0 || relationships.length > 0) && (
+            {/* AI Status Windows (Hybrid) - Hidden in Observation/Guide Mode */}
+            {isAi && !hideStatus && (
+
+
+
               <div className={`mt-6 pt-6 border-t ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'border-black/5' : 'border-white/5'} space-y-4`}>
                 
-                {/* 1. Scenario Style Statuses (Card Layout) */}
-                {scenarioStatuses.length > 0 && (
-                  <div className="space-y-2">
-                    {scenarioStatuses.map((s, idx) => (
-                      <div key={idx} className={`flex items-center gap-4 px-6 py-3 rounded-3xl border transition-all ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-black/20 border-white/5'}`}>
-                         <span className={`text-[14px] font-black min-w-[70px] ${
-                           s.name === '사용자' ? 'text-[#A29BFE]' : 
-                           s.name.includes('아츠무') ? 'text-[#81ECEC]' : 
-                           s.name.includes('키타') ? 'text-[#A29BFE]' : 'text-primary'
-                         }`}>{s.name === '사용자' ? (userProfile?.name || '나') : s.name}</span>
-                         <div className="flex flex-col gap-0 border-l border-white/10 pl-4">
-                            <div className="flex items-center gap-2">
-                              <Zap className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                              <span className="text-[12px] font-bold opacity-90">{s.mood}</span>
+                {/* 1. SCENARIO MODE: Always visible Card layout */}
+                {isStory && (
+                  <>
+                    {scenarioStatuses.length > 0 && (
+                      <div className="space-y-2">
+                        {scenarioStatuses.map((s, idx) => (
+                          <div key={idx} className={`flex items-center gap-4 px-6 py-3 rounded-3xl border transition-all ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-black/20 border-white/5'}`}>
+                            <span className={`text-[14px] font-black min-w-[70px] ${
+                              s.name === '사용자' ? 'text-[#A29BFE]' : 
+                              s.name.includes('아츠무') ? 'text-[#81ECEC]' : 
+                              s.name.includes('키타') ? 'text-[#A29BFE]' : 'text-primary'
+                            }`}>{s.name === '사용자' ? (userProfile?.name || '나') : s.name}</span>
+                            <div className="flex flex-col gap-0 border-l border-white/10 pl-4">
+                                <div className="flex items-center gap-2">
+                                  <Zap className="w-3 h-3 text-[#A29BFE] fill-[#A29BFE]" />
+                                  <span className="text-[12px] font-bold opacity-90">{s.mood}</span>
+                                </div>
+                                <span className="text-[11px] opacity-50 font-medium italic">{s.action}</span>
                             </div>
-                            <span className="text-[11px] opacity-50 font-medium italic">{s.action}</span>
-                         </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    )}
+                    {relationships.length > 0 && (
+                      <div className={`px-6 py-4 rounded-3xl border ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-black/20 border-white/5'}`}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Heart className="w-3.5 h-4 text-rose-500 fill-rose-500" />
+                          <span className="text-[10px] font-black opacity-60 uppercase tracking-[0.2em]">Relationships</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {relationships.map((rel, idx) => (
+                            <div key={idx} className="bg-white/5 px-4 py-1.5 rounded-full border border-white/5 text-[11px] font-bold opacity-80 backdrop-blur-md">
+                              {rel}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
-                {/* 2. Relationships (Chip Layout) */}
-                {relationships.length > 0 && (
-                  <div className={`px-6 py-4 rounded-3xl border ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-black/20 border-white/5'}`}>
-                    <div className="flex items-center gap-2 mb-3">
-                       <Heart className="w-3.5 h-4 text-rose-500 fill-rose-500" />
-                       <span className="text-[10px] font-black opacity-60 uppercase tracking-[0.2em]">Relationships</span>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                       {relationships.map((rel, idx) => (
-                         <div key={idx} className="bg-white/5 px-4 py-1.5 rounded-full border border-white/5 text-[11px] font-bold opacity-80 backdrop-blur-md">
-                           {rel}
-                         </div>
-                       ))}
-                    </div>
+                {/* 2. CHARACTER MODE: Toggleable Legacy layout */}
+                {!isStory && settings?.showStatus && (
+                  <div className="space-y-4">
+                    <button 
+                      onClick={() => setIsStatusOpen(!isStatusOpen)}
+                      className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'text-black/40 hover:text-primary' : 'text-white/40 hover:text-primary'} transition-colors ml-1`}
+                    >
+                      <span>캐릭터 상태창</span>
+                      {isStatusOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    </button>
+
+                    {isStatusOpen && (
+                      <div className="space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                        {/* Status Cards in Character Mode (if available) */}
+                        {scenarioStatuses.length > 0 && (
+                          <div className="space-y-2">
+                             {scenarioStatuses.map((s, idx) => (
+                               <div key={idx} className={`flex items-center gap-4 px-4 py-2.5 rounded-2xl border transition-all ${theme === 'oreo' ? 'bg-black/5 border-black/5' : 'bg-white/5 border-white/5'}`}>
+                                  <span className={`text-[12px] font-black min-w-[60px] ${
+                                    s.name === '사용자' ? 'text-[#A29BFE]' : 
+                                    s.name.includes('아츠무') ? 'text-[#81ECEC]' : 
+                                    s.name.includes('키타') ? 'text-[#A29BFE]' : 'text-primary'
+                                  }`}>{s.name === '사용자' ? (userProfile?.name || '나') : s.name}</span>
+                                  <div className="flex flex-col gap-0 border-l border-white/10 pl-3">
+                                      <div className="flex items-center gap-2">
+                                        <Zap className="w-3 h-3 text-[#A29BFE] fill-[#A29BFE]" />
+                                        <span className="text-[11px] font-bold opacity-90">{s.mood}</span>
+                                      </div>
+                                      <span className="text-[10px] opacity-50 font-medium italic">{s.action}</span>
+                                  </div>
+                               </div>
+                             ))}
+                          </div>
+                        )}
+
+                        {/* Favorability Bar */}
+                        {favorability !== undefined && (
+                          <div className={`rounded-2xl border p-4 ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-black/20 border-white/5'}`}>
+
+                            <div className="flex items-center justify-between mb-2">
+                               <div className="flex items-center gap-2">
+                                  <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400" />
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-rose-400">Favorability</span>
+                               </div>
+                               <span className="text-[10px] font-bold text-rose-400">{favorability}%</span>
+                            </div>
+                            <div className={`w-full h-1.5 rounded-full overflow-hidden ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/10' : 'bg-white/10'}`}>
+                               <div className="h-full bg-rose-400 transition-all duration-1000" style={{ width: `${favorability}%` }} />
+                            </div>
+                          </div>
+                        )}
+
+                        {legacyStatuses.map((block, idx) => {
+                          const lines = block.content.split('\n').filter(l => l.trim()).map(l => l.replace(/^[*-]\s*/, ''));
+                          
+                          // 레이블 보충 및 분류
+                          const defaultLabels = ["장소", "상황", "기분", "포즈", "속마음"];
+                          const processedLines = lines.map((line, lidx) => {
+                            if (line.includes(':')) return line;
+                            const label = defaultLabels[lidx] || "기타";
+                            return `${label}: ${line}`;
+                          });
+
+                          const bgLines = processedLines.filter(line => line.startsWith('장소:') || line.startsWith('상황:'));
+                          const otherLines = processedLines.filter(line => !line.startsWith('장소:') && !line.startsWith('상황:'));
+
+                          return (
+                            <div key={idx} className="space-y-4">
+                              {/* 1. 배경 상태창 (장소, 상황) - 이미지 1 스타일 */}
+                              {bgLines.length > 0 && (
+                                <div className={`rounded-2xl border p-4 ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-black/20 border-white/5'}`}>
+                                  <h5 className="text-[10px] font-black text-[#A29BFE] uppercase tracking-widest mb-3 flex items-center gap-2">
+                                    <Zap className="w-3.5 h-3.5 fill-[#A29BFE] text-[#A29BFE]" /> 배경 상태창
+                                  </h5>
+                                  <div className="space-y-1.5">
+                                    {bgLines.map((line, lidx) => (
+                                      <div key={lidx} className="text-[12px] opacity-80 flex items-start gap-2">
+                                        <span className="opacity-40 font-bold">•</span>
+                                        <span>{line}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 2. 기타 상태 (기분, 포즈, 속마음 등) - 불렛 리스트 */}
+                              {otherLines.length > 0 && (
+                                <div className="space-y-1.5 px-1 pb-2">
+                                  {otherLines.map((line, lidx) => (
+                                    <div key={lidx} className="text-[12px] opacity-80 flex items-start gap-2">
+                                      <span className="opacity-40 font-bold">•</span>
+                                      <span>{line}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                      </div>
+                    )}
+
+                    {/* Relationships in Character Mode */}
+                    {relationships.length > 0 && (
+                      <div className={`mt-2 px-4 py-3 rounded-2xl border ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-white/5 border-white/5'}`}>
+                        <div className="flex items-center gap-2 mb-2">
+                           <Heart className="w-3 h-3 text-rose-500 fill-rose-500" />
+                           <span className="text-[10px] font-black opacity-60 uppercase tracking-widest text-[#A29BFE]">Relationships</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                           {relationships.map((rel, idx) => (
+                             <div key={idx} className="bg-black/20 px-3 py-1 rounded-full border border-white/5 text-[11px] font-bold opacity-80">
+                               {rel}
+                             </div>
+                           ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             )}
 
-            {/* 4. Scenario Summary Block (New Aesthetic) */}
-            {isAi && (scenarioSummary.stats.length > 0 || scenarioSummary.status || scenarioSummary.bullets.length > 0 || scenarioSummary.turnCount) && (
+            {/* 4. Scenario Summary Block (New Aesthetic) - Only for Character Mode if needed, but Story Mode uses Cards */}
+            {isAi && !isStory && (scenarioSummary.stats.length > 0 || scenarioSummary.status || scenarioSummary.bullets.length > 0 || scenarioSummary.turnCount) && (
               <div className={`mt-6 pt-6 border-t ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'border-black/5' : 'border-white/5'} space-y-3`}>
                 {(scenarioSummary.stats.length > 0 || scenarioSummary.status) && (
                   <div className="flex flex-col gap-1">
