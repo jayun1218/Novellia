@@ -612,15 +612,16 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       <div className="flex-1 max-w-4xl mx-auto w-full px-4 pt-12 pb-32">
         <div className="space-y-2">
           {messages.map((message) => (
-            <Message
-              key={message.id}
-              {...message}
-              settings={settings}
-              userProfile={userProfiles[selectedProfileIndex]}
-              activeCharacters={activeCharacters}
-              favorability={favorability}
-              onAvatarClick={handleProfileClick}
-            />
+             <Message
+               key={message.id}
+               {...message}
+               settings={settings}
+               userProfile={userProfiles[selectedProfileIndex]}
+               activeCharacters={activeCharacters}
+               favorability={favorability}
+               isStory={false}
+               onAvatarClick={handleProfileClick}
+             />
           ))}
           <div ref={messagesEndRef} className="h-4" />
         </div>
@@ -631,6 +632,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
         onGenerateScene={handleGenerateScene}
         onObserve={handleObserve}
         isGeneratingImage={isGeneratingImage}
+        theme={settings.theme}
       />
 
       {selectedCharacter && (

@@ -603,11 +603,14 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
     fav_contexts = []
     for char in target_chars:
         cid = char.get('id', 'unknown')
+        # worldview_id가 있으면 키를 분리하여 데이터 격리
+        storage_id = f"{request.worldview_id}:{cid}" if request.worldview_id else cid
+        
         system_prompt += f"\n[Character: {char['name']}]\n"
         system_prompt += f"- Description: {char.get('description', '')}\n"
         system_prompt += f"- Persona: {char.get('persona', '')}\n"
         
-        current_chat = chats_db.get(cid, {"messages": [], "favorability": 0})
+        current_chat = chats_db.get(storage_id, {"messages": [], "favorability": 0})
         if isinstance(current_chat, list):
             current_chat = {"messages": current_chat, "favorability": 0}
             
@@ -647,13 +650,11 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             1. **Header**: Every response MUST start with: `YYYY/MM/DD HH:MM｜Location｜[Turn Count]` (Turn Count is {turn_count})
             2. **Narration**: Focus on atmospheric, descriptive writing. Use formatting like **bold** for sound effects or emphasis.
             3. **Dialogue**: `CharacterName｜ "Dialogue Content"`
-            4. **Schicksal System Window**: At the very end, include the following EXACT block:
-               𝕾𝖈𝖍𝖎𝖈𝖐𝖘𝖆𝖑
-               [☀︎:n]｜[★:n]
-               [상태: status1, status2]
-               - situational_point_1
-               - situational_point_2
-               엔딩까지 턴 수 {turn_count}/{max_turns}
+            4. **Status Window & Relationships**: At the very end, include the following EXACT block:
+               [캐릭터이름 | 기분 | 행동] (모든 주요 캐릭터와 주인공 정보를 포함할 것)
+               [관계｜이름이모지｜이름이모지｜...] 
+               (이모지 기준: 0-20😠, 21-40😒, 41-60😑, 61-80🤔, 81-100😊)
+               *절대 "𝕾𝖈𝖍𝖎𝖈𝖐𝖘𝖆𝖑" 문구를 포함하지 마십시오.*
             """
 
     # 유저 정보 및 상세 페르소나(Lore) 주입
@@ -745,15 +746,17 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             if fav_match:
                 try:
                     change = int(fav_match.group(1))
-                    if cid not in chats_db: chats_db[cid] = {"messages": [], "favorability": 0}
-                    if isinstance(chats_db[cid], list): chats_db[cid] = {"messages": chats_db[cid], "favorability": 0}
+                    storage_id = f"{request.worldview_id}:{cid}" if request.worldview_id else cid
                     
-                    old_fav = chats_db[cid].get("favorability", 0)
+                    if storage_id not in chats_db: chats_db[storage_id] = {"messages": [], "favorability": 0}
+                    if isinstance(chats_db[storage_id], list): chats_db[storage_id] = {"messages": chats_db[storage_id], "favorability": 0}
+                    
+                    old_fav = chats_db[storage_id].get("favorability", 0)
                     new_fav = max(0, min(100, old_fav + change))
-                    chats_db[cid]["favorability"] = new_fav
+                    chats_db[storage_id]["favorability"] = new_fav
                     
                     if idx == 0: primary_fav = new_fav
-                    print(f"Favorability updated for {cname}: {old_fav} -> {new_fav} ({change})")
+                    print(f"Favorability updated for {cname} (Storage: {storage_id}): {old_fav} -> {new_fav} ({change})")
                 except Exception as e:
                     print(f"Favorability parse error: {e}")
             else:
@@ -772,17 +775,19 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
                     m = re.search(r'[+-]?\d+', change_str)
                     change = max(-5, min(5, int(m.group()))) if m else 0
                     
-                    if cid not in chats_db: chats_db[cid] = {"messages": [], "favorability": 0}
-                    if isinstance(chats_db[cid], list): chats_db[cid] = {"messages": chats_db[cid], "favorability": 0}
+                    storage_id = f"{request.worldview_id}:{cid}" if request.worldview_id else cid
+                    if storage_id not in chats_db: chats_db[storage_id] = {"messages": [], "favorability": 0}
+                    if isinstance(chats_db[storage_id], list): chats_db[storage_id] = {"messages": chats_db[storage_id], "favorability": 0}
                     
-                    old_fav = chats_db[cid].get("favorability", 0)
+                    old_fav = chats_db[storage_id].get("favorability", 0)
                     new_fav = max(0, min(100, old_fav + change))
-                    chats_db[cid]["favorability"] = new_fav
+                    chats_db[storage_id]["favorability"] = new_fav
                     if idx == 0: primary_fav = new_fav
-                    print(f"[Fallback Eval] {cname}: {old_fav} -> {new_fav} ({change:+d})")
+                    print(f"[Fallback Eval] {cname} (Storage: {storage_id}): {old_fav} -> {new_fav} ({change:+d})")
                 except Exception as e:
                     print(f"[Fallback Eval Error] {e}")
-                    if idx == 0: primary_fav = chats_db.get(cid, {}).get("favorability", 0) if isinstance(chats_db.get(cid), dict) else 0
+                    storage_id = f"{request.worldview_id}:{cid}" if request.worldview_id else cid
+                    if idx == 0: primary_fav = chats_db.get(storage_id, {}).get("favorability", 0) if isinstance(chats_db.get(storage_id), dict) else 0
 
 
         # 로어북 자동 동기화 (Phase 3)

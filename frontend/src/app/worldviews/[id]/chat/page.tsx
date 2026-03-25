@@ -29,6 +29,13 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
   const [userPersona, setUserPersona] = useState('');
   const [quickReplies, setQuickReplies] = useState<string[]>([]);
   const [showQuickReplies, setShowQuickReplies] = useState(true);
+  const [settings, setSettings] = useState({
+    theme: 'basic',
+    showProfile: true,
+    showStatus: true,
+    autoBg: false,
+    haptic: true
+  });
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -186,6 +193,80 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
     }
   };
 
+  const handleGenerateScene = async (prompt: string) => {
+    if (isGeneratingImage || activeCharacters.length === 0) return;
+    setIsGeneratingImage(true);
+    try {
+      const scenePrompt = prompt || messages.slice(-2).map(m => m.content).join(' ');
+      const response = await fetch('http://127.0.0.1:8000/generate-scene-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: scenePrompt, char_id: activeCharacters[0].id }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.url) {
+          setMessages(prev => [...prev, {
+            id: Date.now(),
+            content: `*${activeCharacters.map(c => c.name).join(', ')}와(과) 함께하는 이 순간을 기록했습니다.*`,
+            isAi: true,
+            imageUrl: data.url,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }]);
+        }
+      }
+    } catch (error) {
+      console.error('Scene generation error:', error);
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
+  const handleObserve = async () => {
+    if (isGeneratingImage || messages.length === 0) return;
+
+    setIsGeneratingImage(true);
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/chat/${id}/observe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: '[관찰 모드]',
+          chat_history: messages.map(m => ({
+            role: m.isAi ? 'assistant' : 'user',
+            content: m.content
+          })),
+          char_ids: activeCharacters.map(p => p.id)
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const reply = data.reply;
+
+        const parts = reply.split(/(?=\[.*?\])/g).filter((p: string) => {
+          return p.trim() && /^\[(?!(상태창|FEED|호감도|BG)).*?\]/.test(p);
+        });
+
+        const newMessages = parts.map((part: string, idx: number) => {
+          return {
+            id: Date.now() + idx + Math.random(),
+            content: part.trim(),
+            isAi: true,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          };
+        });
+
+        setMessages(prev => [...prev, ...newMessages]);
+      }
+    } catch (err) {
+      console.error('Observation failed:', err);
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
   const handleProfileClick = (char: any) => {
     setSelectedCharacter(char);
     setIsProfileModalOpen(true);
@@ -208,8 +289,8 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
         userProfiles={[{ name: userName, persona: userPersona }]}
         selectedProfileIndex={0}
         onProfileSelect={() => {}}
-        settings={{ theme: 'basic', showProfile: true, showStatus: true, autoBg: false, haptic: true }}
-        onSettingsChange={() => {}}
+        settings={settings}
+        onSettingsChange={setSettings}
         onResetChat={() => setMessages([])}
         onAvatarClick={handleProfileClick}
         onOpenScenarios={() => {}}
@@ -233,10 +314,11 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
             <Message 
               key={message.id} 
               {...message} 
-              settings={{ theme: 'basic', showProfile: true, showStatus: true }}
+              settings={settings}
               userProfile={{ name: userName, persona: userPersona, avatar_url: '/avatar.png' }}
               activeCharacters={activeCharacters}
               favorability={favorability}
+              isStory={true}
             />
           ))}
           <div ref={messagesEndRef} className="h-4" />
@@ -266,9 +348,10 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
 
       <ChatInput 
         onSend={handleSend} 
-        onGenerateScene={() => {}}
-        onObserve={() => {}}
+        onGenerateScene={handleGenerateScene}
+        onObserve={handleObserve}
         isGeneratingImage={isGeneratingImage}
+        theme={settings.theme}
       />
 
       {selectedCharacter && (

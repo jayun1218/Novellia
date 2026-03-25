@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, User, Sparkles, Clock } from 'lucide-react';
+import { ChevronDown, ChevronUp, User, Sparkles, Clock, Heart, Zap } from 'lucide-react';
 
 interface MessageProps {
   content: string;
@@ -18,6 +18,7 @@ interface MessageProps {
   activeCharacters?: any[];
   favorability?: number;
   imageUrl?: string;
+  isStory?: boolean;
   onAvatarClick?: (char: any) => void;
 }
 
@@ -31,6 +32,7 @@ const Message: React.FC<MessageProps> = ({
   favorability, 
   imageUrl, 
   role,
+  isStory = false,
   onAvatarClick 
 }) => {
   const [isStatusOpen, setIsStatusOpen] = useState(false);
@@ -41,7 +43,6 @@ const Message: React.FC<MessageProps> = ({
   const getSpeakerInfo = () => {
     if (!isAi) return { name: userProfile?.name || '나', avatar: userProfile?.avatar_url || '/avatar.png', char: null };
     
-    // [이름] 형식의 태그 추출
     const nameMatch = content.match(/^\[(.*?)\]/);
     const speakerName = nameMatch ? nameMatch[1] : '';
     const char = activeCharacters.find(c => c.name === speakerName);
@@ -54,20 +55,10 @@ const Message: React.FC<MessageProps> = ({
       };
     }
     
-    // 대화에 참여 중이지 않은 제3의 인물(하나마키 등) 처리
-    if (speakerName) {
-      return {
-        name: speakerName,
-        avatar: 'default_side', // 기본 실루엣 태그
-        char: null
-      };
-    }
-
-    // 기본값 (참여 중인 첫 번째 캐릭터)
     const fallbackChar = activeCharacters[0];
     return {
       name: fallbackChar?.name || 'AI',
-      avatar: fallbackChar?.avatar_url || fallbackChar?.avatarUrl || 'default_side',
+      avatar: fallbackChar?.avatar_url || fallbackChar?.avatarUrl || '/avatar.png',
       char: fallbackChar
     };
   };
@@ -75,26 +66,54 @@ const Message: React.FC<MessageProps> = ({
   const speaker = getSpeakerInfo();
   
   const parseContent = (text: string) => {
-    // 1. Scenario Header Parsing (YYYY/MM/DD HH:MM｜Location｜[Turn])
+    // 1. Header Parsing
     const headerRegex = /^(\d{4}\/\d{2}\/\d{2}\s\d{2}:\d{2}｜.*?｜\[\d+\])\n*/;
     const headerMatch = text.match(headerRegex);
     const header = headerMatch ? headerMatch[1] : null;
     let remainingText = header ? text.replace(headerRegex, "") : text;
 
-    // 2. Schicksal Block Parsing (𝕾𝖈𝖍𝖎𝖈𝖐𝖘𝖆𝖑 ... 턴 수 n/10)
-    const schicksalRegex = /(𝕾𝖈𝖍𝖎𝖈𝖐𝖘𝖆𝖑[\s\S]*?(?:엔딩까지 턴 수 \d+\/\d+|$))/;
-    const schicksalMatch = remainingText.match(schicksalRegex);
-    const schicksalContent = schicksalMatch ? schicksalMatch[1] : null;
-    remainingText = schicksalContent ? remainingText.replace(schicksalRegex, "") : remainingText;
-
-    const statusRegex = /\[(.*?)상태창\]([\s\S]*?)(?=\[|$)/g;
-    const statusBlocks: { title: string; content: string }[] = [];
+    // 2. Scenario Status Parsing [Name | Mood | Action]
+    const scenarioStatusRegex = /\[([^\]|]+)\s*\|\s*([^\]|]+)\s*\|\s*([^\]|]+)\]/g;
+    const scenarioStatuses: { name: string; mood: string; action: string }[] = [];
     
+    let match;
+    let tempText = remainingText;
+    while ((match = scenarioStatusRegex.exec(tempText)) !== null) {
+      scenarioStatuses.push({ 
+        name: match[1].trim(), 
+        mood: match[2].trim(), 
+        action: match[3].trim() 
+      });
+      remainingText = remainingText.replace(match[0], "");
+    }
+
+    // 3. Legacy Status Parsing [Name 상태창]
+    const legacyStatusRegex = /\[(.*?)상태창\]([\s\S]*?)(?=\[|$)/g;
+    const legacyStatuses: { title: string; content: string }[] = [];
+    
+    while ((match = legacyStatusRegex.exec(remainingText)) !== null) {
+      legacyStatuses.push({ 
+        title: match[1].trim() + " 상태창", 
+        content: match[2].trim() 
+      });
+      remainingText = remainingText.replace(match[0], "");
+    }
+
+    // 4. Relationship Parsing [관계｜...]
+    const relRegex = /\[관계｜([^\]]+)\]/;
+    const relMatch = remainingText.match(relRegex);
+    const relationshipRaw = relMatch ? relMatch[1] : null;
+    remainingText = relationshipRaw ? remainingText.replace(relRegex, "") : remainingText;
+    
+    const relationships = relationshipRaw ? relationshipRaw.split('｜').filter(Boolean) : [];
+
     const cleanSystemTags = (t: string) => {
       return t.replace(/\[.*? 감정:\s*.*?\]/g, "")
               .replace(/\[BG:\s*.*?\]/g, "")
               .replace(/\[.*?호감도:\s*[+-]?\d+\]/g, "")
-              .replace(/\[FEED:\s*.*?\]/g, "");
+              .replace(/\[FEED:\s*.*?\]/g, "")
+              .replace(/𝕾𝖈𝖍𝖎𝖈𝖐𝖘𝖆𝖑/g, "")
+              .replace(/엔딩까지 턴 수 \d+\/\d+/g, "");
     };
 
     const stripSpeakerPrefix = (t: string) => {
@@ -102,45 +121,36 @@ const Message: React.FC<MessageProps> = ({
     };
 
     let mainText = cleanSystemTags(remainingText);
-    
-    let match;
-    const originalText = remainingText;
-    while ((match = statusRegex.exec(originalText)) !== null) {
-      const cleanedStatus = stripSpeakerPrefix(cleanSystemTags(match[2].trim()));
-      statusBlocks.push({ title: match[1].trim() + " 상태창", content: cleanedStatus });
-      mainText = mainText.replace(match[0], "");
-    }
-
     mainText = stripSpeakerPrefix(mainText);
+
     return { 
       header,
       dialogue: mainText.trim(), 
-      statusBlocks,
-      schicksalContent
+      scenarioStatuses,
+      legacyStatuses,
+      relationships
     };
   };
 
-  const { header, dialogue, statusBlocks, schicksalContent } = parseContent(content);
+  const { header, dialogue, scenarioStatuses, legacyStatuses, relationships } = parseContent(content);
   const isGuide = role === 'guide';
 
   const formatDialogue = (text: string) => {
-    const cleanText = text.replace(/\[.*?호감도:\s*[+-]?\d+\]/g, '').trim();
-    // 캐릭터 이름 ｜ "대사" 패턴 하이라이트
-    const parts = cleanText.split(/(\*.*?\*|\(.*?\)|\S+?\s*｜\s*".*?")/g);
+    const parts = text.split(/(\*.*?\*|\(.*?\)|\S+?\s*｜\s*".*?")/g);
     
     return parts.map((part, i) => {
       if ((part.startsWith('*') && part.endsWith('*')) || (part.startsWith('(') && part.endsWith(')'))) {
-        let actionColor = isAi ? 'text-primary' : 'text-white/60';
-        if (theme === 'oreo' || theme === 'taro') actionColor = isAi ? 'text-gray-500' : 'text-black/40';
-        return <span key={i} className={`${actionColor} italic font-normal`}>{part}</span>;
+        let actionColor = isAi ? 'text-white/40' : 'text-white/60';
+        if (theme === 'oreo' || theme === 'taro' || theme === 'mint') actionColor = isAi ? 'text-gray-500' : 'text-black/40';
+        return <span key={i} className={`${actionColor} italic font-medium`}>{part}</span>;
       }
       
       const charDialogueMatch = part.match(/^(\S+?)\s*｜\s*"(.*?)"$/);
       if (charDialogueMatch) {
          return (
            <span key={i} className="block my-2" style={{ textIndent: 0 }}>
-             <span className="font-black text-primary mr-2 tracking-tight opacity-90">{charDialogueMatch[1]}</span>
-             <span className={isAi ? "text-gray-100" : "text-white"}>"{charDialogueMatch[2]}"</span>
+             <span className="font-black text-primary mr-2 tracking-tight">{charDialogueMatch[1]}</span>
+             <span className={isAi ? "" : "text-inherit"}>"{charDialogueMatch[2]}"</span>
            </span>
          );
       }
@@ -149,39 +159,40 @@ const Message: React.FC<MessageProps> = ({
   };
 
   const getBubbleStyle = () => {
-    if (isGuide) return 'bg-white/5 border-l-2 border-primary/50 text-gray-300';
-    if (isAi) {
-      return 'bg-surface/40 backdrop-blur-sm text-gray-100 border border-white/5';
+    const isLight = theme === 'oreo' || theme === 'taro' || theme === 'mint';
+
+    if (!isAi) {
+      switch (theme) {
+        case 'oreo': return 'bg-zinc-100 text-zinc-900 border border-zinc-200';
+        case 'taro': return 'bg-[#8E7CC3] text-white shadow-lg';
+        case 'mint': return 'bg-[#2D6A4F] text-white shadow-lg';
+        case 'orange': return 'bg-[#D67118] text-white shadow-lg';
+        case 'red': return 'bg-[#A4161A] text-white shadow-lg';
+        default: return 'bg-primary text-white shadow-lg';
+      }
     }
-    return 'bg-primary text-white shadow-md';
+    
+    switch (theme) {
+      case 'oreo': return 'bg-white text-zinc-900 border border-zinc-200';
+      case 'taro': return 'bg-[#C8B6FF]/90 text-zinc-900 shadow-[0_4px_20px_rgba(200,182,255,0.3)] border border-white/20';
+      case 'mint': return 'bg-[#94D2BD]/90 text-zinc-900 shadow-[0_4px_20px_rgba(148,210,189,0.3)] border border-white/20';
+      case 'orange': return 'bg-[#FF9F1C]/90 text-white shadow-[0_4px_20px_rgba(255,159,28,0.3)] border border-white/20';
+      case 'red': return 'bg-[#E63946]/90 text-white shadow-[0_4px_20px_rgba(230,57,70,0.3)] border border-white/20';
+      default: return 'bg-zinc-900/40 backdrop-blur-xl border border-white/5 text-gray-100';
+    }
   };
 
   return (
-    <div className={`flex w-full mb-6 gap-3 ${isAi ? 'flex-row items-start' : 'flex-row-reverse items-start'}`}>
+    <div className={`flex w-full mb-8 gap-4 ${isAi ? 'flex-row' : 'flex-row-reverse'}`}>
       {(isAi || showProfile) && (
-        <div className="flex-shrink-0 mt-1">
-          <div 
-            className={`w-9 h-9 rounded-full overflow-hidden border border-white/10 bg-surface ${isAi ? 'cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all' : ''}`}
-            onClick={() => isAi && speaker.char && onAvatarClick?.(speaker.char)}
-          >
-            {speaker.avatar === 'default_side' ? (
-              <div className="w-full h-full flex items-center justify-center bg-gray-500/20 text-gray-400">
-                <User className="w-5 h-5" />
-              </div>
-            ) : (
-              <img src={speaker.avatar} className="w-full h-full object-cover" alt="" />
-            )}
+        <div className="flex-shrink-0">
+          <div className="w-10 h-10 rounded-2xl overflow-hidden border border-white/10 shadow-xl bg-zinc-900">
+            <img src={speaker.avatar} className="w-full h-full object-cover" alt="" />
           </div>
         </div>
       )}
 
       <div className={`flex flex-col max-w-[85%] ${isAi ? 'items-start' : 'items-end'}`}>
-        {(isAi || showProfile) && (
-          <span className={`text-[10px] font-black uppercase tracking-tighter mb-1 px-1 ${isAi ? 'text-gray-500' : 'text-primary'}`}>
-            {speaker.name}
-          </span>
-        )}
-        
         {header && (
           <div className="mb-2 px-3 py-1 bg-white/5 rounded-full border border-white/5 text-[10px] text-gray-400 font-bold flex items-center gap-2">
              <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
@@ -189,132 +200,108 @@ const Message: React.FC<MessageProps> = ({
           </div>
         )}
 
-        <div className={`rounded-2xl overflow-hidden transition-all duration-300 shadow-2xl ${getBubbleStyle()} ${
-          isAi ? 'rounded-tl-none' : 'rounded-tr-none'
-        }`}>
+        <div className={`rounded-3xl p-6 shadow-2xl transition-all duration-300 ${getBubbleStyle()} ${isAi ? 'rounded-tl-none' : 'rounded-tr-none'}`}>
           {imageUrl && (
-            <div className="w-full aspect-video overflow-hidden border-b border-white/5">
-              <img src={imageUrl} alt="Scene" className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" />
-            </div>
+            <img src={imageUrl} alt="Scene" className="w-full rounded-2xl mb-4 border border-white/10" />
           )}
-          <div className="px-6 py-5">
-            {isGuide && (
-              <div className="flex items-center gap-1.5 mb-3 text-red-500 font-black text-xs uppercase tracking-widest">
-                <Sparkles className="w-3.5 h-3.5" />
-                ! 플레이 가이드
-              </div>
-            )}
-            <div className={`leading-relaxed whitespace-pre-wrap font-medium tracking-tight ${isGuide ? 'text-sm text-gray-400 italic' : 'text-[15px]'}`}>
+          
+          <div className="space-y-4">
+            <div className={`leading-relaxed whitespace-pre-wrap font-medium tracking-tight text-[15px] ${isGuide ? 'italic opacity-60' : ''}`}>
               {formatDialogue(dialogue)}
             </div>
-          </div>
 
-          {/* Schicksal Block */}
-          {schicksalContent && (
-             <div className="px-6 pb-6 mt-2">
-                <div className="bg-black/40 rounded-xl border border-white/5 p-4 space-y-4 shadow-inner">
-                   <div className="text-primary font-serif font-black italic text-xl tracking-[0.2em] border-b border-primary/20 pb-2 mb-3">
-                      𝕾𝖈𝖍𝖎𝖈𝖐𝖘𝖆𝖑
-                   </div>
-                   
-                   {/* Point Icons Block */}
-                   <div className="flex items-center gap-3 text-[10px] font-black tracking-widest text-gray-500 uppercase">
-                      {schicksalContent.includes('☀︎') && (
-                         <span className="bg-white/5 px-2 py-1 rounded border border-white/5 flex items-center gap-1">
-                            <span className="text-primary">☀︎</span> {schicksalContent.match(/☀︎:(\d+)/)?.[1] || '0'}
-                         </span>
-                      )}
-                      {schicksalContent.includes('★') && (
-                         <span className="bg-white/5 px-2 py-1 rounded border border-white/5 flex items-center gap-1">
-                            <span className="text-rose-500">★</span> {schicksalContent.match(/★:(\d+)/)?.[1] || '0'}
-                         </span>
-                      )}
-                   </div>
-
-                   {/* Status Badges */}
-                   <div className="flex flex-wrap gap-2 py-1">
-                      {schicksalContent.match(/\[상태:\s*(.*?)\]/) && 
-                         schicksalContent.match(/\[상태:\s*(.*?)\]/)?.[1].split(',').map((status, si) => (
-                            <span key={si} className="text-[10px] px-2 py-1 bg-white/5 text-gray-300 rounded font-black border border-white/10 uppercase tracking-wider">
-                               {status.trim()}
+            {/* AI Status Windows (Hybrid) */}
+            {isAi && settings?.showStatus && (scenarioStatuses.length > 0 || legacyStatuses.length > 0 || relationships.length > 0) && (
+              <div className={`mt-6 pt-6 border-t ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'border-black/5' : 'border-white/5'} space-y-4`}>
+                
+                {/* 1. Scenario Style Statuses */}
+                {scenarioStatuses.length > 0 && (
+                  <div className="grid grid-cols-1 gap-2">
+                    {scenarioStatuses.map((s, idx) => (
+                      <div key={idx} className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl border transition-all ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-white/5 border-white/5'}`}>
+                         <span className="text-[11px] font-black text-primary border-r border-black/10 pr-3 min-w-[60px]">{s.name}</span>
+                         <div className="flex flex-col">
+                            <span className="text-[10px] font-bold flex items-center gap-1.5">
+                              <Zap className="w-3 h-3 text-yellow-500" /> {s.mood}
                             </span>
-                         ))
-                      }
-                   </div>
-
-                   {/* Bullet Points */}
-                   <div className="space-y-2 py-1">
-                      {schicksalContent.split('\n').filter(l => l.trim().startsWith('-')).map((point, pi) => (
-                         <div key={pi} className="text-[13px] text-gray-400 flex items-start gap-2 leading-snug">
-                            <span className="text-primary mt-1 text-[10px]">▶</span>
-                            <span>{point.replace(/^- \s*/, '')}</span>
+                            <span className="text-[11px] opacity-60 font-medium italic translate-y-[-1px]">{s.action}</span>
                          </div>
-                      ))}
-                   </div>
-
-                   {/* Turn Counter */}
-                   <div className="pt-3 border-t border-white/5 flex justify-between items-center">
-                      <span className="text-[9px] text-gray-600 font-bold tracking-widest uppercase">system log synchronized</span>
-                      <span className="text-[10px] text-primary font-black tracking-tighter">
-                         {schicksalContent.match(/엔딩까지 턴 수 \d+\/\d+/) || "TRACKING..."}
-                      </span>
-                   </div>
-                </div>
-             </div>
-          )}
-
-          {isAi && settings?.showStatus && statusBlocks.length > 0 && (
-            <div className={`mt-2 pt-3 border-t ${theme === 'basic' ? 'border-white/5' : 'border-black/5'}`}>
-              <button 
-                onClick={() => setIsStatusOpen(!isStatusOpen)}
-                className="flex items-center gap-1.5 text-[11px] font-bold text-primary/80 hover:text-primary transition-colors px-5 pb-3"
-              >
-                상태창 {isStatusOpen ? '접기' : '열기'}
-                {isStatusOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-              </button>
-              
-              {isStatusOpen && (
-                <div className="px-5 pb-5 space-y-5 animate-in fade-in slide-in-from-top-1">
-                  {favorability !== undefined && (
-                    <div className={`pb-4 border-b ${theme === 'basic' ? 'border-white/5' : 'border-black/5'}`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-black uppercase text-rose-400">Favorability</span>
-                        <span className="text-[10px] font-bold text-rose-400">{favorability}%</span>
                       </div>
-                      <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
-                        <div className="h-full bg-rose-400 transition-all duration-1000" style={{ width: `${favorability}%` }} />
-                      </div>
-                    </div>
-                  )}
+                    ))}
+                  </div>
+                )}
 
-                  {statusBlocks.map((block, idx) => (
-                    <div key={idx} className="space-y-2.5">
-                      <h5 className={`text-[11px] font-black uppercase ${theme === 'basic' ? 'text-white/40' : 'text-black/30'}`}>{block.title}</h5>
-                      <div className="space-y-2 pl-1">
-                        {block.content.split('\n').filter(l => l.trim()).map((line, lidx) => {
-                          const cleanLine = line.replace(/^[*-]\s*/, '');
-                          const categories = ['장소', '상황', '기분', '행동', '속마음'];
-                          
-                          // 이미 콜론이 있으면 그대로 표시, 없으면 순서대로 카테고리 부여
-                          const hasLabel = cleanLine.includes(':') || cleanLine.includes('：');
-                          const displayLine = hasLabel ? cleanLine : `${categories[lidx % categories.length]} : ${cleanLine}`;
-                          
-                          return (
-                            <div key={lidx} className={`text-[13px] ${theme === 'basic' ? 'text-white/70' : 'text-black/60'} flex items-start`}>
-                               <span>{displayLine}</span>
+                {/* 2. Legacy Style Statuses */}
+                {legacyStatuses.length > 0 && (
+                  <div className="space-y-4">
+                    <button 
+                      onClick={() => setIsStatusOpen(!isStatusOpen)}
+                      className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'text-black/40 hover:text-primary' : 'text-white/40 hover:text-primary'} transition-colors ml-1`}
+                    >
+                      <span>캐릭터 상태창</span>
+                      {isStatusOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    </button>
+
+                    {isStatusOpen && (
+                      <div className="space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                        {/* Favorability Bar */}
+                        {favorability !== undefined && !isStory && (
+                          <div className={`rounded-2xl border p-4 ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-white/5 border-white/5'}`}>
+                            <div className="flex items-center justify-between mb-2">
+                               <div className="flex items-center gap-2">
+                                  <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400" />
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-rose-400">Favorability</span>
+                               </div>
+                               <span className="text-[10px] font-bold text-rose-400">{favorability}%</span>
                             </div>
-                          );
-                        })}
+                            <div className={`w-full h-1.5 rounded-full overflow-hidden ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/10' : 'bg-white/10'}`}>
+                               <div className="h-full bg-rose-400 transition-all duration-1000" style={{ width: `${favorability}%` }} />
+                            </div>
+                          </div>
+                        )}
+
+                        {legacyStatuses.map((block, idx) => (
+                          <div key={idx} className={`rounded-2xl border p-4 ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-white/5 border-white/5'}`}>
+                            <h5 className="text-[10px] font-black text-primary uppercase tracking-widest mb-3 flex items-center gap-2">
+                              <Zap className="w-3 h-3" /> {block.title}
+                            </h5>
+                            <div className="space-y-1.5">
+                              {block.content.split('\n').filter(l => l.trim()).map((line, lidx) => (
+                                <div key={lidx} className="text-[12px] opacity-80 flex items-start gap-2">
+                                   <span className="opacity-40 font-bold">•</span>
+                                   <span>{line.replace(/^[*-]\s*/, '')}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
                       </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 3. Relationships */}
+                {relationships.length > 0 && (
+                  <div className={`px-4 py-3 rounded-2xl border ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-white/5 border-white/5'}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                       <Heart className="w-3 h-3 text-rose-500 fill-rose-500" />
+                       <span className="text-[10px] font-black opacity-60 uppercase tracking-widest">Relationships</span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+                    <div className="flex flex-wrap gap-2">
+                       {relationships.map((rel, idx) => (
+                         <div key={idx} className="bg-black/20 px-3 py-1 rounded-full border border-white/5 text-[11px] font-bold opacity-80">
+                           {rel}
+                         </div>
+                       ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         
-        <div className="text-[9px] mt-1.5 opacity-40 text-gray-500 px-1 font-medium">
+        <div className="text-[9px] mt-2 opacity-30 text-gray-500 px-2 font-bold tracking-widest">
           {timestamp}
         </div>
       </div>
