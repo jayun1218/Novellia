@@ -15,7 +15,7 @@ from typing import List, Optional
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Novellia API Server - v0.1.2
+# Novellia API Server - v0.1.3
 app = FastAPI(title="Novellia API", version="0.1.0")
 
 # CORS 설정
