@@ -63,25 +63,54 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
 
     const fetchData = async () => {
       try {
-        // 1. Fetch Worldview
+        // 1. Check for Reset Flag
+        const isReset = localStorage.getItem(`worldview_reset_${id}`) === 'true';
+        if (isReset) {
+          await fetch(`http://127.0.0.1:8000/worldviews/${id}/chat`, { method: 'DELETE' });
+          localStorage.removeItem(`worldview_reset_${id}`);
+        }
+
+        // 2. Fetch Worldview
         const wvRes = await fetch(`http://127.0.0.1:8000/worldviews/${id}`);
         if (!wvRes.ok) throw new Error('Worldview not found');
         const wvData = await wvRes.json();
         setWorldview(wvData);
         if (wvData.quick_replies) setQuickReplies(wvData.quick_replies);
 
-        // 2. Fetch Characters
+        // 3. Fetch Existing Chat History from Backend
+        const historyRes = await fetch(`http://127.0.0.1:8000/chats/${id}:history`);
+        let existingMessages: any[] = [];
+        if (historyRes.ok) {
+          const historyData = await historyRes.json();
+          existingMessages = historyData.messages || [];
+          setFavorability(historyData.favorability || 0);
+        }
+
+        // 4. Fetch Character Favorabilities
+        const favsRes = await fetch(`http://127.0.0.1:8000/worldviews/${id}/favorabilities`);
+        const favsData = favsRes.ok ? await favsRes.json() : {};
+
+        // 5. Fetch Characters
         const charPromises = wvData.character_ids.map(async (cid: string) => {
+           let charData: any = null;
            if (cid.startsWith('my-')) {
              const idx = parseInt(cid.replace('my-', ''));
              const res = await fetch(`http://127.0.0.1:8000/characters/${idx}`);
-             return res.ok ? { id: cid, ...(await res.json()) } : null;
+             if (res.ok) charData = await res.json();
            } else {
              const res = await fetch(`http://127.0.0.1:8000/characters/search?q=${cid}`);
              if (res.ok) {
                const found = await res.json();
-               return found.length > 0 ? found[0] : null;
+               if (found.length > 0) charData = found[0];
              }
+           }
+           
+           if (charData) {
+             return { 
+               id: cid, 
+               ...charData, 
+               favorability: favsData[cid] || 0 
+             };
            }
            return null;
         });
@@ -89,8 +118,32 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
         const chars = (await Promise.all(charPromises)).filter(c => c !== null);
         setActiveCharacters(chars);
 
-        // 3. Initial Message (Intro only, and remove the guide text)
-        if (chars.length > 0) {
+        // 5. Set Initial Messages (If no history, add intro)
+        if (existingMessages.length > 0) {
+          setMessages(existingMessages);
+          
+          // [NEW] Generate fresh suggestions for the last message
+          const lastAiMsg = [...existingMessages].reverse().find(m => m.isAi);
+          if (lastAiMsg) {
+            const charNames = chars.map(c => c.name).join(', ');
+            try {
+              const suggestRes = await fetch(`http://127.0.0.1:8000/chat/generate-suggestions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reply: lastAiMsg.content, char_names: charNames })
+              });
+              if (suggestRes.ok) {
+                const suggestData = await suggestRes.json();
+                if (suggestData.quick_replies) {
+                  setQuickReplies(suggestData.quick_replies);
+                  setShowQuickReplies(true);
+                }
+              }
+            } catch (err) {
+              console.error('Failed to refresh suggestions:', err);
+            }
+          }
+        } else if (chars.length > 0) {
           const initialMsgs = [
             {
               id: 'guide',
@@ -112,6 +165,22 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
     fetchData();
   }, [id, router]);
 
+  const saveHistory = async (newMessages: any[], currentFav: number) => {
+    try {
+      await fetch(`http://127.0.0.1:8000/chats/${id}:history`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: newMessages,
+          favorability: currentFav,
+          worldview_id: id
+        })
+      });
+    } catch (err) {
+      console.error('Failed to save history:', err);
+    }
+  };
+
   const handleSend = async (text: string) => {
     if (!text.trim()) return;
     setShowQuickReplies(false);
@@ -123,7 +192,8 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     
-    setMessages(prev => [...prev, userMsg]);
+    const updatedMsgsWithUser = [...messages, userMsg];
+    setMessages(updatedMsgsWithUser);
 
     try {
       const response = await fetch('http://127.0.0.1:8000/chat', {
@@ -134,7 +204,7 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
           worldview_id: id,
           custom_user_persona: `[User Name: ${userName}] ${userPersona}`,
           char_ids: activeCharacters.map(c => c.id || c.name), 
-          chat_history: messages.map(m => ({ role: m.isAi ? 'assistant' : 'user', content: m.content })),
+          chat_history: updatedMsgsWithUser.map(m => ({ role: m.isAi ? 'assistant' : 'user', content: m.content })),
         }),
       });
 
@@ -161,8 +231,13 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
 
-        setMessages(prev => [...prev, newAiMsg]);
+        const finalMsgs = [...updatedMsgsWithUser, newAiMsg];
+        setMessages(finalMsgs);
         setFavorability(data.favorability);
+        
+        // [PERSIST] Save to Backend
+        saveHistory(finalMsgs, data.favorability);
+
         if (data.quick_replies) {
           setQuickReplies(data.quick_replies);
           setShowQuickReplies(true);

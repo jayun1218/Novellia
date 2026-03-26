@@ -39,8 +39,9 @@ export default function WorldviewDetailPage({ params }: { params: Promise<{ id: 
         const response = await fetch(`http://127.0.0.1:8000/chats`);
         if (response.ok) {
           const chats = await response.json();
-          const worldviewChat = Object.values(chats).find((chat: any) => chat.worldview_id === id);
-          if (worldviewChat) setHasHistory(true);
+          // 키들 중에 {id}:history 가 있는지 확인
+          const hasWorldviewChat = Object.keys(chats).some(key => key.startsWith(`${id}:`));
+          if (hasWorldviewChat) setHasHistory(true);
         }
       } catch (error) {
         console.error('Failed to check history:', error);

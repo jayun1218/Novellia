@@ -931,7 +931,6 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
         if primary_char_id and primary_char_id in chats_db:
             if isinstance(chats_db[primary_char_id], dict):
                 main_fav = chats_db[primary_char_id].get("favorability", 0)
-        
         # 4. 동적 추천 답변(Quick Replies) 생성
         suggestions = []
         try:
@@ -969,6 +968,36 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
         import traceback
         traceback.print_exc()
         return {"status": "error", "message": str(e)}
+
+class SuggestionsRequest(BaseModel):
+    reply: str
+    char_names: str = "캐릭터들"
+
+@app.post("/chat/generate-suggestions")
+async def generate_suggestions_endpoint(request: SuggestionsRequest):
+    try:
+        suggest_prompt = f"""
+        Analyze the latest conversation between {request.char_names} and user.
+        Generate 3 possible short user responses (dialogue or action) that fit the current situation.
+        Keep them immersive and diverse in tone (e.g., friendly, cold, curious).
+        Return ONLY a valid JSON array of 3 strings.
+        Example: ["(고개를 끄덕이며) 알겠어.", "그게 무슨 소리야?", "말도 안 돼."]
+        Response in Korean.
+        """
+        suggest_res = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "system", "content": suggest_prompt}, {"role": "user", "content": f"AI Reply: {request.reply}\n\nSuggested Responses?"}],
+            max_tokens=150,
+            temperature=0.8
+        )
+        s_content = suggest_res.choices[0].message.content.strip()
+        if s_content.startswith("```json"): s_content = s_content[7:-3].strip()
+        elif s_content.startswith("```"): s_content = s_content[3:-3].strip()
+        suggestions = json.loads(s_content)
+        return {"quick_replies": suggestions}
+    except Exception as e:
+        print(f"Quick Reply Generation Error: {e}")
+        return {"quick_replies": ["계속 이야기해줘.", "응, 그렇구나.", "..."]}
 
 @app.post("/upload-image")
 async def upload_image(file: UploadFile = File(...)):
@@ -1126,12 +1155,39 @@ async def save_chat_history(char_id: str, chat_data: dict):
     save_db(CHATS_FILE, chats_db)
     return {"message": "Chat history saved", "favorability": chats_db[char_id].get("favorability", 0)}
 
+@app.get("/chats")
+async def get_all_chats():
+    return chats_db
+
 @app.delete("/chats/{char_id}")
 async def clear_chat_history(char_id: str):
     if char_id in chats_db:
         chats_db[char_id] = {"messages": [], "favorability": 0}
         save_db(CHATS_FILE, chats_db)
     return {"status": "success"}
+
+@app.get("/worldviews/{wv_id}/favorabilities")
+async def get_worldview_favorabilities(wv_id: str):
+    # 해당 세계관(wv_id)에 속한 모든 캐릭터의 호감도 점수만 모아서 반환
+    results = {}
+    for key, value in chats_db.items():
+        if key.startswith(f"{wv_id}:"):
+            # key format: "wv-1:character_id" or "wv-1:history"
+            parts = key.split(":", 1)
+            char_id = parts[1]
+            if char_id != "history":
+                results[char_id] = value.get("favorability", 0)
+    return results
+
+@app.delete("/worldviews/{wv_id}/chat")
+async def clear_worldview_chat(wv_id: str):
+    # 해당 세계관 ID로 시작하는 모든 키(예: wv-1:ma4, wv-1:history)를 찾아 초기화
+    targets = [k for k in chats_db.keys() if k.startswith(f"{wv_id}:")]
+    for k in targets:
+        chats_db[k] = {"messages": [], "favorability": 0}
+    
+    save_db(CHATS_FILE, chats_db)
+    return {"status": "success", "cleared_count": len(targets)}
 
 @app.delete("/gallery")
 async def delete_gallery_image(char_id: str, image_url: str):
