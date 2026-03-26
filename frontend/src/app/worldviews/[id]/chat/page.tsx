@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, use } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronLeft, Sparkles, Send, User, Clock, Heart, Eye } from 'lucide-react';
+import { ChevronLeft, Sparkles, Send, User, Clock, Heart, Eye, Navigation, Book } from 'lucide-react';
 import ChatHeader from '@/components/Chat/ChatHeader';
 import Message from '@/components/Chat/Message';
 import ChatInput from '@/components/Chat/ChatInput';
@@ -10,7 +10,10 @@ import CharacterProfileModal from '@/components/Chat/CharacterProfileModal';
 import ScenarioSelector from '@/components/Chat/ScenarioSelector';
 import StoryTimeline from '@/components/Chat/StoryTimeline';
 import QuestWidget from '@/components/Chat/QuestWidget';
+import MapOverlay from '@/components/Chat/MapOverlay';
 import BottomNav from '@/components/Layout/BottomNav';
+import AchievementToast from '@/components/Chat/AchievementToast';
+import EpilogueModal from '@/components/Chat/EpilogueModal';
 
 export default function WorldviewChatPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -29,6 +32,9 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
   const [userPersona, setUserPersona] = useState('');
   const [quickReplies, setQuickReplies] = useState<string[]>([]);
   const [showQuickReplies, setShowQuickReplies] = useState(true);
+  const [isMapOpen, setIsMapOpen] = useState(false);
+  const [currentLocationId, setCurrentLocationId] = useState('gym-1');
+  const [bgUrl, setBgUrl] = useState('');
   const [settings, setSettings] = useState({
     theme: 'basic',
     showProfile: true,
@@ -36,6 +42,74 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
     autoBg: false,
     haptic: true
   });
+  const [lastAchievement, setLastAchievement] = useState<any>(null);
+  const [favorabilities, setFavorabilities] = useState<Record<string, number>>({});
+
+  const checkAchievements = async (msgCount: number, favs: Record<string, number>) => {
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/worldviews/${id}/check-achievements`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message_count: msgCount,
+          favorabilities: favs
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.new_achievements && data.new_achievements.length > 0) {
+          // 다수의 업적 중 첫 번째 것만 우선 표시 (또는 큐잉 가능)
+          setLastAchievement(data.new_achievements[0]);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to check achievements:', err);
+    }
+  };
+
+  useEffect(() => {
+    const fetchFavorabilities = async () => {
+      try {
+        const res = await fetch(`http://127.0.0.1:8000/worldviews/${id}/favorabilities`);
+        if (res.ok) {
+          const data = await res.json();
+          setFavorabilities(data);
+          // 호감도 로드 시에도 한 번 체크
+          checkAchievements(messages.length, data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch favorabilities:', err);
+      }
+    };
+    if (id) fetchFavorabilities();
+  }, [id, messages.length]);
+
+  const handleMoveLocation = async (loc: any) => {
+    setCurrentLocationId(loc.id);
+    setIsMapOpen(false);
+    if (loc.bg_url) setBgUrl(loc.bg_url);
+
+    // 장소 이동 알림 메시지 (AI가 이를 감지하여 서사 변경 가능)
+    const moveMsg = `[시스템 알림: ${loc.name}(으)로 장소를 이동했습니다. ${loc.description}]`;
+    handleSend(moveMsg);
+
+    // 백엔드 진행도 업데이트
+    try {
+      await fetch(`http://127.0.0.1:8000/worldviews/${id}/progress`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ last_location: loc.id })
+      });
+    } catch (err) {
+      console.error('Failed to update progress location:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (worldview?.thumbnail_url) setBgUrl(worldview.thumbnail_url);
+  }, [worldview]);
+
+  // ... (이전에 정의된 useEffect, fetchData 등 유지)
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -339,8 +413,18 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
       {/* Fixed Background Layer */}
       <div 
         className="fixed inset-0 z-[-1] bg-cover bg-center transition-all duration-1000"
-        style={worldview?.thumbnail_url ? { backgroundImage: `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.8)), url(${worldview?.thumbnail_url})` } : { backgroundColor: '#121212' }}
+        style={bgUrl ? { backgroundImage: `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.8)), url(${bgUrl})` } : { backgroundColor: '#121212' }}
       />
+      
+      {/* Map Toggle Button (Floating) */}
+      <button 
+        onClick={() => setIsMapOpen(true)}
+        className="fixed top-20 right-4 z-40 p-3 bg-primary/20 backdrop-blur-md border border-primary/30 rounded-2xl hover:bg-primary/40 transition-all group shadow-2xl"
+      >
+        <Navigation className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
+        <span className="absolute right-full mr-2 px-2 py-1 bg-black/60 rounded text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">월드맵 열기</span>
+      </button>
+
       <ChatHeader 
         activeCharacters={activeCharacters} 
         onInvite={() => {}}
@@ -378,6 +462,7 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
               favorability={favorability}
               isStory={true}
               storyAvatar={worldview?.thumbnail_url}
+              lorebook={worldview?.lorebook}
             />
           ))}
           <div ref={messagesEndRef} className="h-4" />
@@ -398,7 +483,7 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
                 className="px-5 py-2.5 bg-zinc-800/80 backdrop-blur-md border border-white/10 rounded-3xl text-[13px] text-gray-200 font-bold hover:bg-zinc-700/80 hover:border-primary/50 transition-all shadow-xl flex items-center gap-2 group"
               >
                 {reply}
-                <Send className="w-3 h-3 text-gray-500 group-hover:text-primary transition-colors" />
+                <Navigation className="w-3 h-3 text-gray-500 group-hover:text-primary transition-colors rotate-45" />
               </button>
             ))}
           </div>
@@ -411,6 +496,22 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
         onObserve={handleObserve}
         isGeneratingImage={isGeneratingImage}
         theme={settings.theme}
+      />
+
+      {/* Achievement Toast */}
+      <AchievementToast 
+        achievement={lastAchievement} 
+        onClose={() => setLastAchievement(null)} 
+      />
+
+      {/* Map Overlay */}
+      <MapOverlay 
+        isOpen={isMapOpen}
+        onClose={() => setIsMapOpen(false)}
+        locations={worldview?.locations || []}
+        currentLocationId={currentLocationId}
+        onMove={handleMoveLocation}
+        thumbnailUrl={worldview?.thumbnail_url || ''}
       />
 
       {selectedCharacter && (

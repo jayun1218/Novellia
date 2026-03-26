@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, PlusCircle, Compass, User, LayoutGrid, Users, Sparkles } from 'lucide-react';
+import { Home, PlusCircle, Compass, User, LayoutGrid, Users, Sparkles, Book } from 'lucide-react';
 
 import { useNotificationStore } from '@/store/useNotificationStore';
 
@@ -14,9 +14,9 @@ const BottomNav = () => {
   const navItems = [
     { href: '/', icon: Home, label: '홈' },
     { href: '/worldviews', icon: Sparkles, label: '스토리' },
+    { href: '/library', icon: Book, label: '서재' },
     { href: '/characters', icon: Users, label: '캐릭터' },
     { href: '/feed', icon: Compass, label: '피드', hasBadge: hasNewFeed },
-    { href: '/create', icon: PlusCircle, label: '생성' },
     { href: '/profiles', icon: User, label: '마이' },
   ];
 

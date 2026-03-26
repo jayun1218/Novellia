@@ -21,7 +21,7 @@ app = FastAPI(title="Novellia API", version="0.1.0")
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:8000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -453,6 +453,169 @@ async def generate_scene_image(request: SceneImageRequest):
         full_prompt = f"High-quality anime style digital painting, {request.prompt}. cinematic lighting, detailed background, immersive atmosphere."
         response = client.images.generate(model="dall-e-3", prompt=full_prompt, size="1024x1024", n=1)
         return {"url": response.data[0].url}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+PROGRESS_FILE = "progress.json"
+
+@app.get("/library")
+async def get_library():
+    # 모든 세계관과 사용자의 진행 상태를 결합하여 반환
+    wv_list = load_db(WORLDVIEWS_FILE)
+    progress_db = load_db(PROGRESS_FILE)
+    
+    library = []
+    for wv in wv_list:
+        wv_id = wv['id']
+        progress = progress_db.get(wv_id, {
+            "completed_chapters": [],
+            "unlocked_endings": [],
+            "last_location": "gym-1",
+            "progress_rate": 0
+        })
+        
+        # 기본 정보와 진행도 병합
+        library.append({
+            "id": wv_id,
+            "title": wv['title'],
+            "tagline": wv['tagline'],
+            "thumbnail_url": wv['thumbnail_url'],
+            "progress": progress,
+            "total_chapters": len(wv.get('chapters', [])),
+            "total_endings": len(wv.get('endings', []))
+        })
+    return library
+
+@app.get("/worldviews/{wv_id}/progress")
+async def get_worldview_progress_api(wv_id: str):
+    progress_db = load_db(PROGRESS_FILE)
+    return progress_db.get(wv_id, {
+        "completed_chapters": [],
+        "unlocked_endings": [],
+        "last_location": "gym-1",
+        "progress_rate": 0
+    })
+
+@app.post("/worldviews/{wv_id}/progress")
+async def update_worldview_progress(wv_id: str, data: dict):
+    progress_db = load_db(PROGRESS_FILE)
+    if wv_id not in progress_db:
+        progress_db[wv_id] = {
+            "completed_chapters": [],
+            "unlocked_endings": [],
+            "last_location": "gym-1",
+            "progress_rate": 0
+        }
+    
+    # 데이터 업데이트
+    if "complete_chapter" in data:
+        cid = data["complete_chapter"]
+        if cid not in progress_db[wv_id]["completed_chapters"]:
+            progress_db[wv_id]["completed_chapters"].append(cid)
+            
+    if "unlock_ending" in data:
+        eid = data["unlock_ending"]
+        if eid not in progress_db[wv_id]["unlocked_endings"]:
+            progress_db[wv_id]["unlocked_endings"].append(eid)
+
+    if "last_location" in data:
+        progress_db[wv_id]["last_location"] = data["last_location"]
+
+    # 진행률 계산
+    wv_list = load_db(WORLDVIEWS_FILE)
+    target_wv = next((w for w in wv_list if w['id'] == wv_id), None)
+    if target_wv and "chapters" in target_wv and len(target_wv["chapters"]) > 0:
+        progress_db[wv_id]["progress_rate"] = int((len(progress_db[wv_id]["completed_chapters"]) / len(target_wv["chapters"])) * 100)
+
+    save_db(PROGRESS_FILE, progress_db)
+    return {"status": "success", "progress": progress_db[wv_id]}
+
+@app.post("/worldviews/{wv_id}/check-achievements")
+async def check_worldview_achievements(wv_id: str, data: dict):
+    ach_list = load_db(ACHIEVEMENTS_FILE)
+    progress_db = load_db(PROGRESS_FILE)
+    
+    if wv_id not in progress_db:
+        progress_db[wv_id] = {
+            "completed_chapters": [],
+            "unlocked_endings": [],
+            "unlocked_achievements": [],
+            "last_location": "gym-1",
+            "progress_rate": 0
+        }
+    
+    if "unlocked_achievements" not in progress_db[wv_id]:
+        progress_db[wv_id]["unlocked_achievements"] = []
+    
+    current_unlocked = progress_db[wv_id]["unlocked_achievements"]
+    newly_unlocked = []
+    
+    msg_count = data.get("message_count", 0)
+    fav_dict = data.get("favorabilities", {})
+    fav_sum = sum(fav_dict.values())
+    
+    for ach in ach_list:
+        if ach["id"] in current_unlocked:
+            continue
+            
+        is_met = False
+        if ach["condition_type"] == "message_count" and msg_count >= ach["condition_value"]:
+            is_met = True
+        elif ach["condition_type"] == "favorability_sum" and fav_sum >= ach["condition_value"]:
+            is_met = True
+        elif ach["condition_type"] == "char_favorability":
+            char_id = ach.get("char_id")
+            if char_id and fav_dict.get(char_id, 0) >= ach["condition_value"]:
+                is_met = True
+        elif ach["condition_type"] == "scenario_start":
+            is_met = True
+            
+        if is_met:
+            progress_db[wv_id]["unlocked_achievements"].append(ach["id"])
+            newly_unlocked.append(ach)
+            
+    if newly_unlocked:
+        save_db(PROGRESS_FILE, progress_db)
+        
+    return {"status": "success", "new_achievements": newly_unlocked, "all_achievements": progress_db[wv_id]["unlocked_achievements"]}
+    
+@app.post("/worldviews/{wv_id}/generate-epilogue")
+async def generate_worldview_epilogue(wv_id: str):
+    # 채팅 기록 로드
+    messages = load_db(f"chats_{wv_id}.json", [])
+    if not messages:
+        return {"status": "error", "message": "No messages found for this worldview."}
+    
+    # 텍스트 추출 (최대 최근 50개)
+    chat_text = "\n".join([f"{m['role']}: {m['content']}" for m in messages[-50:]])
+    wv_list = load_db(WORLDVIEWS_FILE)
+    wv = next((w for w in wv_list if w['id'] == wv_id), {})
+    
+    prompt = f"""당신은 감성적인 소설 작가입니다. 다음은 유저가 '{wv.get('title')}' 세계관에서 겪은 여정의 기록입니다.
+    
+    ---
+    {chat_text}
+    ---
+    
+    위 대화 내용을 바탕으로, 유저의 여정을 마무리하는 아름다운 '에필로그'를 작성해주세요.
+    
+    작성 지침:
+    1. 유저의 주요 선택과 캐릭터들과의 관계 변화를 반영해주세요.
+    2. 서정적이고 여운이 남는 문체(나레이션 중심)로 작성해주세요.
+    3. 마지막에는 [획득한 칭호]와 [주요 성과]를 한 줄로 요약해주세요.
+    4. 포맷: 제목 / 본문 (3-5단락) / 요약
+    
+    언어: 한국어
+    """
+    
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "system", "content": "당신은 최고의 서사 설계자입니다."}, {"role": "user", "content": prompt}],
+            temperature=0.8
+        )
+        epilogue = response.choices[0].message.content
+        return {"status": "success", "epilogue": epilogue}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, User, Sparkles, Clock, Heart, Zap } from 'lucide-react';
+import LoreTooltip from './LoreTooltip';
 
 interface MessageProps {
   content: string;
@@ -20,8 +21,23 @@ interface MessageProps {
   imageUrl?: string;
   isStory?: boolean;
   storyAvatar?: string;
+  lorebook?: any[];
   onAvatarClick?: (char: any) => void;
 }
+
+const LoreSpan: React.FC<{ name: string; content: string; children: React.ReactNode }> = ({ name, content, children }) => {
+  const [show, setShow] = useState(false);
+  return (
+    <span 
+      className="relative cursor-help border-b border-primary/40 text-primary transition-colors hover:bg-primary/5"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      {children}
+      <LoreTooltip name={name} content={content} show={show} />
+    </span>
+  );
+};
 
 const Message: React.FC<MessageProps> = ({ 
   content, 
@@ -35,6 +51,7 @@ const Message: React.FC<MessageProps> = ({
   role,
   isStory = false,
   storyAvatar,
+  lorebook = [],
   onAvatarClick 
 }) => {
   const [isStatusOpen, setIsStatusOpen] = useState(false);
@@ -179,15 +196,41 @@ const Message: React.FC<MessageProps> = ({
   const hideStatus = isObservationRole || (!isStory && (isGuide || isNarrator));
   const hideName = isNarrator;
 
+  const applyLore = (text: string) => {
+    if (!lorebook.length) return text;
+    
+    // 키워드를 긴 순서대로 정렬하여 중첩 방지
+    let allLore: any[] = [];
+    lorebook.forEach(entry => {
+      entry.keywords.forEach((kw: string) => {
+        allLore.push({ kw, content: entry.content });
+      });
+    });
+    allLore.sort((a, b) => b.kw.length - a.kw.length);
+
+    const keywords = allLore.map(l => l.kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    if (!keywords) return text;
+
+    const regex = new RegExp(`(${keywords})`, 'g');
+    const segments = text.split(regex);
+    
+    return segments.map((seg, idx) => {
+      const loreEntry = allLore.find(l => l.kw === seg);
+      if (loreEntry) {
+        return <LoreSpan key={idx} name={seg} content={loreEntry.content}>{seg}</LoreSpan>;
+      }
+      return seg;
+    });
+  };
 
   const formatDialogue = (text: string) => {
-    // 이름"대화" (구분자 없는 포맷)는 시나리오 모드에서만 오동작 방지를 위해 제한적 지원
-    // [개선] 이름 부분에 . , ? ! 등 문장 부호가 포함되지 않도록 범위를 제한 ([^\s.?!,｜"()]{1,10})
+    // 1. 기존 액션/속마음/대사 파싱
     const parts = isStory 
       ? text.split(/(\*.*?\*|\(.*?\)|[^\s.?!,｜"()]{1,10}\s*(?:｜\s*)?".*?")/g)
       : text.split(/(\*.*?\*|\(.*?\)|[^\s.?!,｜"()]{1,10}\s*｜\s*".*?")/g);
     
     return parts.map((part, i) => {
+      // 액션/속마음 처리
       if ((part.startsWith('*') && part.endsWith('*')) || (part.startsWith('(') && part.endsWith(')'))) {
         let actionColor = isAi ? 'text-white/40' : 'text-white/60';
         if (theme === 'oreo' || theme === 'taro' || theme === 'mint') actionColor = isAi ? 'text-gray-500' : 'text-black/40';
@@ -202,11 +245,11 @@ const Message: React.FC<MessageProps> = ({
          return (
            <span key={i} className="block my-1.5" style={{ textIndent: 0 }}>
              <span className="font-black text-primary mr-1 tracking-tight">{charDialogueMatch[1]}</span>
-             <span className={isAi ? "" : "text-inherit"}>"{charDialogueMatch[2]}"</span>
+             <span className={isAi ? "" : "text-inherit"}>"{applyLore(charDialogueMatch[2])}"</span>
            </span>
          );
       }
-      return part;
+      return applyLore(part);
     });
   };
 
