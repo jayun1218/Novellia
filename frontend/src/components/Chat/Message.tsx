@@ -175,7 +175,8 @@ const Message: React.FC<MessageProps> = ({
   const isGuide = role === 'guide';
   const isObservationRole = role === 'observation';
   const isNarrator = speaker.name === 'Scenario' || speaker.name === 'Guide' || speaker.name === '나레이션';
-  const hideStatus = isGuide || isObservationRole || isNarrator;
+  // 스토리 모드에서는 가이드나 나레이션이더라도 상태창을 보여주어야 함 (관찰 모드 제외)
+  const hideStatus = isObservationRole || (!isStory && (isGuide || isNarrator));
   const hideName = isNarrator;
 
 
@@ -305,6 +306,24 @@ const Message: React.FC<MessageProps> = ({
                         ))}
                       </div>
                     )}
+
+                    {/* Support Legacy Status in Story Mode */}
+                    {legacyStatuses.map((block, idx) => (
+                      <div key={idx} className={`rounded-3xl border p-5 ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-black/20 border-white/5'}`}>
+                        <h5 className="text-[11px] font-black text-[#A29BFE] uppercase tracking-widest mb-3 flex items-center gap-2">
+                          <Zap className="w-4 h-4 fill-[#A29BFE] text-[#A29BFE]" /> {block.title}
+                        </h5>
+                        <div className="space-y-2">
+                          {block.content.split('\n').filter(l => l.trim()).map((line, lidx) => (
+                            <div key={lidx} className="text-[13px] opacity-90 flex items-start gap-2">
+                              <span className="opacity-40 font-black text-primary mt-[1px]">•</span>
+                              <span className="leading-relaxed">{line.replace(/^[*-]\s*/, '')}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+
                     {relationships.length > 0 && (
                       <div className={`px-6 py-4 rounded-3xl border ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-black/20 border-white/5'}`}>
                         <div className="flex items-center gap-2 mb-3">

@@ -692,10 +692,10 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
         system_prompt += f"\n[AUTO PERSONA ASSIGNMENT]\n당신은 현재 사용자의 페르소나가 결정되지 않은 상태임을 인지하십시오. 시나리오 맥락과 등장인물들의 관계, 그리고 아래 권장 사항을 고려하여 사용자에게 가장 흥미롭고 적절한 역할(페르소나)을 직접 부여하십시오.{preset_info}\n답변의 맨 처음에 반드시 `*페르소나 '...'가 적용되었습니다.*` 형식을 포함하여 선언한 뒤, 해당 역할에 맞춰 이야기를 시작하십시오.\n"
 
     system_prompt += f"""
-        - **Jealousy & Dynamics**: 캐릭터들은 유저와의 관계(호감도)나 상황에 따라 질투, 소유욕, 경쟁심을 느낍니다. 다대다 대화에서 특정 캐릭터 편애 시 혹은 1:1 대화에서 타인 언급 시 서운함이나 차가운 반응을 대사나 `[Name 상태창]`의 **속마음**에 반영하십시오.
+        - **Jealousy & Dynamics**: 캐릭터들은 유저와의 관계(호감도)나 상황에 따라 질투, 소유욕, 경쟁심을 느낍니다. 다대다 대화에서 특정 캐릭터 편애 시 혹은 1:1 대화에서 타인 언급 시 서운함이나 차가운 반응을 대사나 하단 상태 카드의 **행동** 항목에 반영하십시오.
         - **Context**: 상단에 제공된 User Information(이름, 신분 등)을 대화에 적극 반영하십시오.
         - **Background**: 장소 이동 시에만 `[BG: style_name]` 태그를 추가합니다 (gym, night_park, cafe, training_camp, barbecue, sunset_court).
-        - **Format Override**: IF SCENARIO MODE is active, ignore the default 5-step format (Step 1-5) and use the [SCENARIO FORMAT RULES] instead.
+        - **Format Override**: IF SCENARIO MODE is active, YOU MUST IGNORE the default 5-step format (Step 1-5) and strictly follow the [SCENARIO FORMAT RULES] below.
         
         [Language] All responses MUST be in Korean.
     """
