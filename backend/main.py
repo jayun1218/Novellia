@@ -15,6 +15,7 @@ from typing import List, Optional
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+# Novellia API Server - v0.1.2
 app = FastAPI(title="Novellia API", version="0.1.0")
 
 # CORS 설정
@@ -665,14 +666,31 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
 
     # 유저 정보 및 상세 페르소나(Lore) 주입
     user_info = "User"
+    is_auto_persona = False
+    
     if request.custom_user_persona:
-        # 세계관 전용 커스텀 페르소나가 있으면 최우선 적용
-        user_info = f"### User Information (Worldview Role)\n- Identity: {request.custom_user_persona}"
+        if "시스템 자동 설정" in request.custom_user_persona:
+            is_auto_persona = True
+            # 이름만 추출 시도 (예: [User Name: 리리] 시스템 자동 설정)
+            import re
+            name_match = re.search(r'\[User Name:\s*(.*?)\]', request.custom_user_persona)
+            curr_name = name_match.group(1) if name_match else "사용자"
+            user_info = f"### User Information (System Determined)\n- Name: {curr_name}\n- Identity: [AI가 시나리오에 맞춰 부여할 예정]"
+        else:
+            # 세계관 전용 커스텀 페르소나가 있으면 최우선 적용
+            user_info = f"### User Information (Worldview Role)\n- Identity: {request.custom_user_persona}"
     elif request.user_profile_index is not None and 0 <= request.user_profile_index < len(user_profiles_db):
         u = user_profiles_db[request.user_profile_index]
         user_info = f"### User Information\n- Name: {u.get('name', 'User')}\n- Identity: {u.get('persona', u.get('description', 'A normal student'))}"
     
     system_prompt += f"\n{user_info}\n### Relationships\n" + "\n".join(fav_contexts)
+    
+    # 자동 페르소나 설정 시 추가 지침
+    if is_scenario_mode and is_auto_persona and turn_count == 1:
+        preset = wv.get('user_persona_preset', '') if wv else ''
+        preset_info = f"\n- Recommended Persona Context: {preset}" if preset else ""
+        system_prompt += f"\n[AUTO PERSONA ASSIGNMENT]\n당신은 현재 사용자의 페르소나가 결정되지 않은 상태임을 인지하십시오. 시나리오 맥락과 등장인물들의 관계, 그리고 아래 권장 사항을 고려하여 사용자에게 가장 흥미롭고 적절한 역할(페르소나)을 직접 부여하십시오.{preset_info}\n답변의 맨 처음에 반드시 `*페르소나 '...'가 적용되었습니다.*` 형식을 포함하여 선언한 뒤, 해당 역할에 맞춰 이야기를 시작하십시오.\n"
+
     system_prompt += f"""
         - **Jealousy & Dynamics**: 캐릭터들은 유저와의 관계(호감도)나 상황에 따라 질투, 소유욕, 경쟁심을 느낍니다. 다대다 대화에서 특정 캐릭터 편애 시 혹은 1:1 대화에서 타인 언급 시 서운함이나 차가운 반응을 대사나 `[Name 상태창]`의 **속마음**에 반영하십시오.
         - **Context**: 상단에 제공된 User Information(이름, 신분 등)을 대화에 적극 반영하십시오.
