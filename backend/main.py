@@ -15,7 +15,7 @@ from typing import List, Optional
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Novellia API Server - v0.1.3
+# Novellia API Server - v0.1.4
 app = FastAPI(title="Novellia API", version="0.1.0")
 
 # CORS 설정
@@ -649,10 +649,10 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             system_prompt += f"""
             [SCENARIO FORMAT RULES]
             1. **Header**: Every response MUST start with: `YYYY/MM/DD HH:MM｜Location｜[Turn Count]` (Turn Count is {turn_count})
-            2. **Narration**: Focus on atmospheric, descriptive writing.
+            2. **Narration**: Focus on atmospheric, descriptive writing blended with character dialogues.
             3. **Dialogue**: Use the format `CharacterName"Dialogue Content"`. Example: `리리"안녕하세요."`
-            4. **Status Card Data**: At the very end, include ONLY these blocks:
-               [캐릭터이름 | 기분 | 행동] (장면에 등장하는 모든 캐릭터와 사용자에 대해 작성. 반드시 이 대괄호 형식을 지키십시오.)
+            4. **Status Card Data**: At the very end, include ONLY these blocks (DO NOT use [Name 상태창] if is_scenario_mode):
+               [캐릭터이름 | 기분 | 행동] (반드시 장면에 등장하는 모든 캐릭터와 사용자에 대해 개별적으로 작성하십시오.)
                [관계｜이름이모지｜이름이모지｜...] (반드시 포함)
                엔딩까지 턴 수 {turn_count}/{max_turns}
             
