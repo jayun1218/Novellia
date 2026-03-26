@@ -23,20 +23,23 @@
 - **📊 인터랙티브 관계도 (Relationship Map)**: 나와 캐릭터들 사이의 정서적 거리를 한눈에 볼 수 있는 관계 페이지를 통해 인연의 깊이를 확인하세요.
 - **📂 대화 기반 로어 자동 동기화 (Auto Lore Sync)**: 대화 중에 오간 중요한 설정과 추억을 AI가 스스로 감지하여 로어북에 실시간으로 기록하고 저장합니다.
 - **인공지능 자동 피드 게시**: 캐릭터들이 대화 중의 특별한 사건을 스스로 감지하여 자신의 SNS 피드에 기록하고 공유합니다.
+- **🎭 몰입형 스토리 모드 (Scenario Mode)**: 단순 채팅을 넘어 소설처럼 전개되는 시나리오 모드를 제공합니다. 장소의 공기, 소리, 미세한 심리 묘사가 어우러진 '감각적 나레이션'과 함께 캐릭터들의 상태를 한눈에 볼 수 있는 '전용 상태 카드'가 매 턴 업데이트됩니다.
+- **🔄 스마트 세션 관리 (Resume & Start New)**: 진행 중인 시나리오를 언제든 '이어하기'로 재개할 수 있으며, 이 경우 마지막 대화 맥락에 맞춘 **3개의 새로운 추천 답변**이 자동 생성됩니다. '새로하기' 시에는 호감도와 기록이 안전하게 초기화되어 새로운 운명을 시작할 수 있습니다.
+- **👔 페르소나 자동 부여 (Auto-Persona)**: 별도의 설정 없이도 시나리오의 흐름과 캐릭터와의 관계에 가장 적합한 페르소나가 대화 시작 시점에 자동으로 부여됩니다.
 
 ## 🛠 기술 스택
 
 ### Frontend
 - **Framework**: Next.js 16 (App Router)
-- **Styling**: Tailwind CSS v4 (Glassmorphism & Dark Mode)
+- **Styling**: Vanilla CSS (Premium Custom Design) & Tailwind Optional
 - **Animation**: Framer Motion
 - **Icons**: Lucide React
-- **Persistence**: LocalStorage 기반 세션 유지
+- **Persistence**: LocalStorage & Backend API 기반 세션 유지
 
 ### Backend
 - **Framework**: FastAPI (Python)
-- **AI Engine**: OpenAI GPT-4o (Chat/Reasoning), GPT-4o-mini (Summarization/Lore Extraction), DALL-E 3 (Image Engine)
-- **Logic**: 실시간 장기 기억 요약, 호감도 추론, AI 페르소나 설계 및 로어 동기화 엔진
+- **AI Engine**: OpenAI GPT-4o (Scenario/Reasoning), GPT-4o-mini (Suggestions/Summarization), DALL-E 3 (Image Engine)
+- **Logic**: 감각적 서사 엔진, 실시간 세션 동기화, 호감도 추론 및 로어 동기화
 
 ---
 
@@ -74,6 +77,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 6. **Phase 6: Novellia 월드 Giga 확장** - 멀티 캐릭터 채팅, 유저 페르소나, 갤러리 및 자동 피드 연동 (✅ 완료)
 7. **Phase 7: 사용자 경험 고도화** - AI 페르소나 자동 설계, 스토리 타임라인, 영속성 시스템 및 비주얼 정합성 강화 (✅ 완료)
 8. **Phase 8: 프리미엄 경험 확장** - 실시간 감정 애니메이션, 고유 테마, 관계도 시각화 및 로어 자동 동기화 (✅ 완료)
+9. **Phase 9: 시나리오 엔진 고도화** - 몰입형 스토리 모드, 스마트 세션 관리(이어하기/새로하기) 및 자동 페르소나 부여 (✅ 완료)
 
 ---
 **Novellia** - *당신의 상상이 현실이 되는 첫 번째 페이지.*
