@@ -47,7 +47,7 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
 
   const checkAchievements = async (msgCount: number, favs: Record<string, number>) => {
     try {
-      const res = await fetch(`http://127.0.0.1:8000/worldviews/${id}/check-achievements`, {
+      const res = await fetch(`http://localhost:8000/worldviews/${id}/check-achievements`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -68,60 +68,6 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
   };
 
   useEffect(() => {
-    const fetchFavorabilities = async () => {
-      try {
-        const res = await fetch(`http://127.0.0.1:8000/worldviews/${id}/favorabilities`);
-        if (res.ok) {
-          const data = await res.json();
-          setFavorabilities(data);
-          // 호감도 로드 시에도 한 번 체크
-          checkAchievements(messages.length, data);
-        }
-      } catch (err) {
-        console.error('Failed to fetch favorabilities:', err);
-      }
-    };
-    if (id) fetchFavorabilities();
-  }, [id, messages.length]);
-
-  const handleMoveLocation = async (loc: any) => {
-    setCurrentLocationId(loc.id);
-    setIsMapOpen(false);
-    if (loc.bg_url) setBgUrl(loc.bg_url);
-
-    // 장소 이동 알림 메시지 (AI가 이를 감지하여 서사 변경 가능)
-    const moveMsg = `[시스템 알림: ${loc.name}(으)로 장소를 이동했습니다. ${loc.description}]`;
-    handleSend(moveMsg);
-
-    // 백엔드 진행도 업데이트
-    try {
-      await fetch(`http://127.0.0.1:8000/worldviews/${id}/progress`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ last_location: loc.id })
-      });
-    } catch (err) {
-      console.error('Failed to update progress location:', err);
-    }
-  };
-
-  useEffect(() => {
-    if (worldview?.thumbnail_url) setBgUrl(worldview.thumbnail_url);
-  }, [worldview]);
-
-  // ... (이전에 정의된 useEffect, fetchData 등 유지)
-  
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const scrollToBottom = (smooth = true) => {
-    messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  useEffect(() => {
     const presetName = localStorage.getItem(`worldview_user_name_${id}`);
     const defaultName = localStorage.getItem('novellia_user_name') || '여행자';
     const name = presetName || defaultName;
@@ -135,73 +81,45 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
       return;
     }
 
-    const fetchData = async () => {
+    const initData = async () => {
       try {
+        setLoading(true);
+
         // 1. Check for Reset Flag
         const isReset = localStorage.getItem(`worldview_reset_${id}`) === 'true';
         if (isReset) {
-          await fetch(`http://127.0.0.1:8000/worldviews/${id}/chat`, { method: 'DELETE' });
+          await fetch(`http://localhost:8000/worldviews/${id}/chat`, { method: 'DELETE' });
           localStorage.removeItem(`worldview_reset_${id}`);
         }
 
-        // 2. Fetch Worldview
-        const wvRes = await fetch(`http://127.0.0.1:8000/worldviews/${id}`);
+        // 2. Fetch Worldview Config
+        const wvRes = await fetch(`http://localhost:8000/worldviews/${id}`);
         if (!wvRes.ok) throw new Error('Worldview not found');
         const wvData = await wvRes.json();
         setWorldview(wvData);
         if (wvData.quick_replies) setQuickReplies(wvData.quick_replies);
 
-        // 3. Fetch Existing Chat History from Backend
-        const historyRes = await fetch(`http://127.0.0.1:8000/chats/${id}:history`);
-        let existingMessages: any[] = [];
-        if (historyRes.ok) {
-          const historyData = await historyRes.json();
-          existingMessages = historyData.messages || [];
-          setFavorability(historyData.favorability || 0);
-        }
+        // 3. Fetch Existing Chat History & Progress (Parallel)
+        const [historyRes, progressRes, favsRes] = await Promise.all([
+          fetch(`http://localhost:8000/worldviews/${id}/history`),
+          fetch(`http://localhost:8000/worldviews/${id}/progress`),
+          fetch(`http://localhost:8000/worldviews/${id}/favorabilities`)
+        ]);
 
-        // 4. Fetch Character Favorabilities
-        const favsRes = await fetch(`http://127.0.0.1:8000/worldviews/${id}/favorabilities`);
-        const favsData = favsRes.ok ? await favsRes.json() : {};
+        let hData = historyRes.ok ? await historyRes.json() : { history: [] };
+        let pData = progressRes.ok ? await progressRes.json() : { progress: {} };
+        let fData = favsRes.ok ? await favsRes.json() : {};
 
-        // 5. Fetch Characters
-        const charPromises = wvData.character_ids.map(async (cid: string) => {
-           let charData: any = null;
-           if (cid.startsWith('my-')) {
-             const idx = parseInt(cid.replace('my-', ''));
-             const res = await fetch(`http://127.0.0.1:8000/characters/${idx}`);
-             if (res.ok) charData = await res.json();
-           } else {
-             const res = await fetch(`http://127.0.0.1:8000/characters/search?q=${cid}`);
-             if (res.ok) {
-               const found = await res.json();
-               if (found.length > 0) charData = found[0];
-             }
-           }
-           
-           if (charData) {
-             return { 
-               id: cid, 
-               ...charData, 
-               favorability: favsData[cid] || 0 
-             };
-           }
-           return null;
-        });
-
-        const chars = (await Promise.all(charPromises)).filter(c => c !== null);
-        setActiveCharacters(chars);
-
-        // 5. Set Initial Messages (If no history, add intro)
-        if (existingMessages.length > 0) {
-          setMessages(existingMessages);
+        // 4. Update State
+        if (hData.history?.length > 0) {
+          setMessages(hData.history);
           
           // [NEW] Generate fresh suggestions for the last message
-          const lastAiMsg = [...existingMessages].reverse().find(m => m.isAi);
+          const lastAiMsg = [...hData.history].reverse().find(m => m.isAi);
           if (lastAiMsg) {
-            const charNames = chars.map(c => c.name).join(', ');
+            const charNames = (wvData.characters || []).map((c: any) => c.name).join(', ');
             try {
-              const suggestRes = await fetch(`http://127.0.0.1:8000/chat/generate-suggestions`, {
+              const suggestRes = await fetch(`http://localhost:8000/chat/generate-suggestions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ reply: lastAiMsg.content, char_names: charNames })
@@ -217,37 +135,104 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
               console.error('Failed to refresh suggestions:', err);
             }
           }
-        } else if (chars.length > 0) {
-          const initialMsgs = [
-            {
-              id: 'guide',
-              content: wvData.intro_text,
-              isAi: true,
-              role: 'guide',
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            }
-          ];
-          setMessages(initialMsgs);
+        } else if (wvData.introduction) {
+          setMessages([{
+            id: Date.now(),
+            content: wvData.introduction,
+            isAi: true,
+            role: 'observation',
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }]);
         }
+
+        if (pData.progress?.last_location) {
+          const locId = pData.progress.last_location;
+          setCurrentLocationId(locId);
+          const loc = wvData.locations?.find((l: any) => l.id === locId);
+          if (loc?.bg_url) setBgUrl(loc.bg_url);
+        } else if (wvData.thumbnail_url) {
+          setBgUrl(wvData.thumbnail_url);
+        }
+
+        setFavorabilities(fData);
+
+        // 5. Build Active Characters with current favorabilities
+        const charPromises = (wvData.characters || []).map(async (char: any) => {
+           return { ...char, favorability: fData[char.name] || fData[char.id] || 0 };
+        });
+        const chars = await Promise.all(charPromises);
+        setActiveCharacters(chars);
+
       } catch (err) {
-        console.error(err);
+        console.error('Initialization failed:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    if (id) initData();
   }, [id, router]);
 
-  const saveHistory = async (newMessages: any[], currentFav: number) => {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = (smooth = true) => {
+    messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
+  };
+
+  useEffect(() => {
+    scrollToBottom(messages.length > 5);
+  }, [messages]);
+
+  const handleMoveLocation = async (loc: any) => {
+    setCurrentLocationId(loc.id);
+    setIsMapOpen(false);
+    if (loc.bg_url) setBgUrl(loc.bg_url);
+
+    // 장소 이동 알림 메시지 (AI가 이를 감지하여 서사 변경 가능)
+    const moveMsg = `[시스템 알림: ${loc.name}(으)로 장소를 이동했습니다. ${loc.description}]`;
+    handleSend(moveMsg);
+
+    // 백엔드 진행도 업데이트
     try {
-      await fetch(`http://127.0.0.1:8000/chats/${id}:history`, {
+      await fetch(`http://localhost:8000/worldviews/${id}/progress`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify({ last_location: loc.id })
+      });
+    } catch (err) {
+      console.error('Failed to update progress location:', err);
+    }
+  };
+
+  const [isEpilogueOpen, setIsEpilogueOpen] = useState(false);
+  const [epilogueText, setEpilogueText] = useState('');
+  const [isEpilogueLoading, setIsEpilogueLoading] = useState(false);
+
+  const handleEndJourney = async () => {
+    setIsEpilogueOpen(true);
+    setIsEpilogueLoading(true);
+    try {
+      const res = await fetch(`http://localhost:8000/worldviews/${id}/generate-epilogue`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setEpilogueText(data.epilogue);
+      }
+    } catch (err) {
+      console.error('Failed to generate epilogue:', err);
+    } finally {
+      setIsEpilogueLoading(false);
+    }
+  };
+
+  const saveHistory = async (newMessages: any[]) => {
+    try {
+      // 세계관 전용 대화 내역 저장소 (chats_{id}.json)에 저장
+      await fetch(`http://localhost:8000/worldviews/${id}/progress`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
           messages: newMessages,
-          favorability: currentFav,
-          worldview_id: id
+          last_location: currentLocationId
         })
       });
     } catch (err) {
@@ -270,7 +255,7 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
     setMessages(updatedMsgsWithUser);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/chat', {
+      const response = await fetch('http://localhost:8000/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -310,7 +295,7 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
         setFavorability(data.favorability);
         
         // [PERSIST] Save to Backend
-        saveHistory(finalMsgs, data.favorability);
+        saveHistory(finalMsgs);
 
         if (data.quick_replies) {
           setQuickReplies(data.quick_replies);
@@ -327,7 +312,7 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
     setIsGeneratingImage(true);
     try {
       const scenePrompt = prompt || messages.slice(-2).map(m => m.content).join(' ');
-      const response = await fetch('http://127.0.0.1:8000/generate-scene-image', {
+      const response = await fetch('http://localhost:8000/generate-scene-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: scenePrompt, char_id: activeCharacters[0].id }),
@@ -357,7 +342,7 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
 
     setIsGeneratingImage(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/chat/${id}/observe`, {
+      const res = await fetch(`http://localhost:8000/chat/${id}/observe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -419,7 +404,7 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
       {/* Map Toggle Button (Floating) */}
       <button 
         onClick={() => setIsMapOpen(true)}
-        className="fixed top-20 right-4 z-40 p-3 bg-primary/20 backdrop-blur-md border border-primary/30 rounded-2xl hover:bg-primary/40 transition-all group shadow-2xl"
+        className="fixed top-44 right-4 z-40 p-3 bg-primary/20 backdrop-blur-md border border-primary/30 rounded-2xl hover:bg-primary/40 transition-all group shadow-2xl"
       >
         <Navigation className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
         <span className="absolute right-full mr-2 px-2 py-1 bg-black/60 rounded text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">월드맵 열기</span>

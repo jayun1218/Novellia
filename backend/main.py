@@ -461,8 +461,8 @@ PROGRESS_FILE = "progress.json"
 @app.get("/library")
 async def get_library():
     # 모든 세계관과 사용자의 진행 상태를 결합하여 반환
-    wv_list = load_db(WORLDVIEWS_FILE)
-    progress_db = load_db(PROGRESS_FILE)
+    wv_list = load_db(WORLDVIEWS_FILE, [])
+    progress_db = load_db(PROGRESS_FILE, {})
     
     library = []
     for wv in wv_list:
@@ -488,7 +488,7 @@ async def get_library():
 
 @app.get("/worldviews/{wv_id}/progress")
 async def get_worldview_progress_api(wv_id: str):
-    progress_db = load_db(PROGRESS_FILE)
+    progress_db = load_db(PROGRESS_FILE, {})
     return progress_db.get(wv_id, {
         "completed_chapters": [],
         "unlocked_endings": [],
@@ -498,7 +498,7 @@ async def get_worldview_progress_api(wv_id: str):
 
 @app.post("/worldviews/{wv_id}/progress")
 async def update_worldview_progress(wv_id: str, data: dict):
-    progress_db = load_db(PROGRESS_FILE)
+    progress_db = load_db(PROGRESS_FILE, {})
     if wv_id not in progress_db:
         progress_db[wv_id] = {
             "completed_chapters": [],
@@ -521,8 +521,12 @@ async def update_worldview_progress(wv_id: str, data: dict):
     if "last_location" in data:
         progress_db[wv_id]["last_location"] = data["last_location"]
 
+    # [NEW] 대화 내역 영구 저장 연동 (사용자 요청: 나갔다 들어와도 대화 유지)
+    if "messages" in data:
+        save_db(f"chats_{wv_id}.json", data["messages"])
+
     # 진행률 계산
-    wv_list = load_db(WORLDVIEWS_FILE)
+    wv_list = load_db(WORLDVIEWS_FILE, [])
     target_wv = next((w for w in wv_list if w['id'] == wv_id), None)
     if target_wv and "chapters" in target_wv and len(target_wv["chapters"]) > 0:
         progress_db[wv_id]["progress_rate"] = int((len(progress_db[wv_id]["completed_chapters"]) / len(target_wv["chapters"])) * 100)
@@ -532,8 +536,8 @@ async def update_worldview_progress(wv_id: str, data: dict):
 
 @app.post("/worldviews/{wv_id}/check-achievements")
 async def check_worldview_achievements(wv_id: str, data: dict):
-    ach_list = load_db(ACHIEVEMENTS_FILE)
-    progress_db = load_db(PROGRESS_FILE)
+    ach_list = load_db(ACHIEVEMENTS_FILE, [])
+    progress_db = load_db(PROGRESS_FILE, {})
     
     if wv_id not in progress_db:
         progress_db[wv_id] = {
@@ -579,6 +583,11 @@ async def check_worldview_achievements(wv_id: str, data: dict):
         
     return {"status": "success", "new_achievements": newly_unlocked, "all_achievements": progress_db[wv_id]["unlocked_achievements"]}
     
+@app.get("/worldviews/{wv_id}/history")
+async def get_worldview_chat_history(wv_id: str):
+    history = load_db(f"chats_{wv_id}.json", [])
+    return {"status": "success", "history": history}
+
 @app.post("/worldviews/{wv_id}/generate-epilogue")
 async def generate_worldview_epilogue(wv_id: str):
     # 채팅 기록 로드
@@ -588,7 +597,7 @@ async def generate_worldview_epilogue(wv_id: str):
     
     # 텍스트 추출 (최대 최근 50개)
     chat_text = "\n".join([f"{m['role']}: {m['content']}" for m in messages[-50:]])
-    wv_list = load_db(WORLDVIEWS_FILE)
+    wv_list = load_db(WORLDVIEWS_FILE, [])
     wv = next((w for w in wv_list if w['id'] == wv_id), {})
     
     prompt = f"""당신은 감성적인 소설 작가입니다. 다음은 유저가 '{wv.get('title')}' 세계관에서 겪은 여정의 기록입니다.
@@ -813,13 +822,15 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             [SCENARIO FORMAT RULES]
             1. **Header**: Every response MUST start with: `YYYY/MM/DD HH:MM｜Location｜[Turn Count]` (Turn Count is {turn_count})
             2. **Narration**: Provide rich, atmospheric, and sensory-driven descriptions. Focus on the mood of the location, subtle sounds, the temperature of the air, and the characters' detailed internal/external movements. Each response should feel like a high-quality novel.
-            3. **Dialogue**: Integrate dialogues naturally into the narrative. Use the format `CharacterName"Dialogue Content"`.
+            3. **Dialogue**: Integrate dialogues naturally into the narrative like a novel. DO NOT use pipe symbols (|) or separate lines for dialogue labels. Dialogue must follow or be preceded by a descriptive sentence mentioning the character's name. **IMPORTANT**: Use double quotes (`"`) for the main dialogue content (e.g., 'CharacterName said, "Dialogue content"').
             4. **Status Card Data**: At the very end, include ONLY these blocks (DO NOT use [Name 상태창] if is_scenario_mode):
                [캐릭터이름 | 기분 | 행동] (반드시 장면에 등장하는 모든 캐릭터와 사용자에 대해 개별적으로 작성하십시오.)
                [관계｜이름이모지｜이름이모지｜...] (반드시 포함)
                엔딩까지 턴 수 {turn_count}/{max_turns}
             
             [NEGATIVE CONSTRAINTS - VERY IMPORTANT]
+            - **NO NAME SEPARATORS**: Never use formats like 'Character | "..."' or '[Character]: "..."'. Always use full literary sentences to introduce dialogue.
+            - **NO SINGLE QUOTES FOR DIALOGUE**: Use double quotes (`"`) for speech, not single quotes (`'`).
             - **NO PLAIN TEXT SUMMARY**: 메시지 하단에 '장소: ...', '상황: ...' 등 평문으로 된 상태 요약을 절대 적지 마십시오. 모든 상태 정보는 반드시 `[...]` 블록 안에만 존재해야 합니다.
             - THE STORY BODY MUST END with dialogue or narration. NO keywords like 'neutral', '없음' should follow the story.
             - Do NOT use bullets (`- `) for status information. Use the `[Name | Mood | Action]` format only.
@@ -914,9 +925,22 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
 
         # 호감도 업데이트 및 태그 제거
         primary_fav = 0
+        
+        # 실제 답변에서 이름이 발견된 캐릭터들만 호감도 업데이트 대상으로 선정 (사용자 요청: 등장 인물만 호감도 상승)
+        speaking_names = []
+        for char in target_chars:
+            cn = char['name']
+            if f"[{cn}]" in reply or f"{cn} \"" in reply or f"{cn}:" in reply or f"{cn} ：" in reply or f"{cn}｜" in reply:
+                speaking_names.append(cn)
+
         for idx, char in enumerate(target_chars):
             cid = char.get('id', 'unknown')
             cname = char['name']
+            
+            # 대화에 참여하지 않은 캐릭터는 호감도 업데이트 스킵
+            if cname not in speaking_names and len(speaking_names) > 0:
+                print(f"Skipping favorability for {cname} (not joined in this dialogue)")
+                continue
             
             # 더 유연한 정규식: 공백, 콜론 위치, 대괄호 여부 등에 유연하게 대응
             patterns = [
