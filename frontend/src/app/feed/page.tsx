@@ -1,9 +1,48 @@
+// [Redesigned SNS Feed Page]
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Heart, MessageCircle, Share2, MoreHorizontal, Sparkles, Send, ChevronDown, ChevronUp } from 'lucide-react';
+import { Heart, MessageCircle, Share2, MoreHorizontal, Sparkles, Send, ChevronDown, ChevronUp, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNotificationStore } from '@/store/useNotificationStore';
+
+// [KakaoTalk Style Chat Renderer]
+const ChatCapture = ({ dialogue, mainCharacter }: { dialogue: string, mainCharacter: string }) => {
+  if (!dialogue) return null;
+
+  const lines = dialogue.split('\n').filter(line => line.includes(':'));
+  
+  return (
+    <div className="w-full bg-[#BACEE0] rounded-2xl overflow-hidden p-4 flex flex-col gap-3 font-sans shadow-inner">
+      {lines.map((line, idx) => {
+        const [name, ...contentParts] = line.split(':');
+        const content = contentParts.join(':').trim();
+        const isMainChar = name.trim() === mainCharacter;
+
+        return (
+          <div key={idx} className={`flex ${isMainChar ? 'justify-end' : 'justify-start'} items-start gap-2`}>
+            {!isMainChar && (
+              <div className="w-8 h-8 rounded-xl bg-blue-400/20 flex-shrink-0 flex items-center justify-center text-[10px] text-blue-900 font-bold border border-blue-900/10">
+                {name.trim().substring(0, 1)}
+              </div>
+            )}
+            <div className={`flex flex-col ${isMainChar ? 'items-end' : 'items-start'}`}>
+              {!isMainChar && <span className="text-[10px] text-gray-500 mb-1 ml-1">{name.trim()}</span>}
+              <div className={`
+                max-w-[85%] px-3 py-2 rounded-2xl text-[13px] leading-tight shadow-sm
+                ${isMainChar 
+                  ? 'bg-[#FEE500] text-black rounded-tr-none' 
+                  : 'bg-white text-black rounded-tl-none'}
+              `}>
+                {content}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 // NPC 댓글 풀 (랜덤 유저 아이디 + 다양한 반응)
 const NPC_USERNAMES = [
@@ -252,9 +291,9 @@ export default function FeedPage() {
               </button>
             </div>
 
-            {/* Post Image (Moved to top for SNS style) */}
-            {post.imageUrl && (
-              <div className="px-5 pb-4">
+            {/* Post Image or Chat Capture (KakaoTalk Style) */}
+            <div className="px-5 pb-4">
+              {post.imageUrl ? (
                 <div className="rounded-2xl overflow-hidden border border-white/5 aspect-video bg-black/20 relative group">
                   <img 
                     src={post.imageUrl} 
@@ -263,22 +302,16 @@ export default function FeedPage() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 </div>
-              </div>
-            )}
+              ) : post.dialogue ? (
+                <ChatCapture dialogue={post.dialogue} mainCharacter={post.characterName} />
+              ) : null}
+            </div>
 
             {/* Post Content (Caption) */}
             <div className="px-5 pb-5">
               <p className="text-gray-300 text-[15px] leading-relaxed whitespace-pre-wrap font-medium">
                 {post.content}
               </p>
-              {post.dialogue && (
-                <div className="mt-4 p-3 bg-white/5 rounded-xl border border-white/5">
-                  <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-2">Original Dialogue</p>
-                  <p className="text-gray-400 text-xs italic leading-relaxed whitespace-pre-wrap line-clamp-3 hover:line-clamp-none transition-all cursor-pointer">
-                    {post.dialogue}
-                  </p>
-                </div>
-              )}
             </div>
 
             {/* Post Actions */}

@@ -711,80 +711,96 @@ async def generate_feed_comments_bg(post_id: int, char_name: str, content: str):
     except Exception as e:
         print(f"[BG TASK] Failed to generate comments for Post {post_id}: {e}")
 
+async def download_image_to_local(url: str) -> str:
+    """원격 이미지를 로컬 uploads 폴더에 저장하고 URL을 반환합니다."""
+    if not url: return ""
+    try:
+        import httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url)
+            if response.status_code == 200:
+                unique_filename = f"{uuid.uuid4()}.webp"
+                file_path = os.path.join(UPLOAD_DIR, unique_filename)
+                with open(file_path, "wb") as f:
+                    f.write(response.content)
+                return f"http://localhost:8000/uploads/{unique_filename}"
+    except Exception as e:
+        print(f"Image download error: {e}")
+    return url # 실패 시 원본 URL 반환
+
 async def trigger_autonomous_interaction():
     """캐릭터들끼리 자율적으로 대화하고 피드에 게시하는 백그라운드 작업"""
     print("[Autonomous World] Triggering interaction...")
     
-    # 1. 대상 캐릭터 선정 (대화 가능한 인기 캐릭터 중 2~3명)
+    # 1. 대상 캐릭터 선정
     available_chars = [c for c in popular_characters_data.values() if not c.get("is_story_only")]
     if len(available_chars) < 2: return
     
     participants = random.sample(available_chars, min(len(available_chars), 3))
     char_names = ", ".join([p["name"] for p in participants])
     
-    # 2. 대화 생성 프롬프트
-    prompt = f"""당신은 고퀄리티 서브컬처 소설 작가입니다. 현재 '{char_names}' 세 캐릭터가 유저가 없는 곳에서 우연히 만나 대화를 나누고 있습니다.
+    # 2. 대화 생성 프롬프트 (카톡 캡처 최적화)
+    prompt = f"""당신은 서브컬처 애니메이션 소설 작가입니다. 현재 '{char_names}' 캐릭터들이 카카오톡 단톡방에서 대화를 나누고 있습니다.
     
     참가자 정보:
     {json.dumps([{ 'name': p['name'], 'persona': p['persona'], 'speech_style': p['speech_style'] } for p in participants], ensure_ascii=False)}
     
-    배경: 부활동 쉬는 시간, 혹은 하교길 등 일상적인 공간.
-    
     조건:
-    1. 각 캐릭터의 원작 성격과 말투(효고현 사투리 등)를 완벽하게 재현하세요.
-    2. 3~5턴 정도의 짧고 임팩트 있는 티키타카 대화를 작성하세요.
-    3. 마지막에는 이 상황을 상징하는 감성적이고 캐치한 한국어 SNS 피드 멘트와 관련 해시태그를 3개 내외로 작성하세요.
-    4. DALL-E 3 이미지 생성을 위한 고해상도 영어 프롬프트를 작성하세요. (캐릭터들의 외형 묘사와 상호작용하는 구체적인 장면 묘사 포함)
+    1. 각 캐릭터의 원작 성격과 말투(사투리 포함)를 완벽하게 재현하세요.
+    2. 카톡 캡처용으로 적합하도록 한 줄당 15자 내외의 짧은 티키타카 대화(7~12턴)를 작성하세요.
+    3. 결과는 반드시 한국어로 작성하세요.
     
     출력 형식 (JSON):
     {{
-      "dialogue": "캐릭터1: ... \\n캐릭터2: ...",
-      "feed_mention": "피드에 올릴 요약 멘트 (해시태그 포함)",
-      "main_character": "피드를 게시할 캐릭터 이름",
-      "image_prompt": "DALL-E 3 image generation prompt in English"
+      "dialogue": "캐릭터1: 내용\\n캐릭터2: 내용...",
+      "caption": "SNS 피드용 한 줄 요약 (예: 배구공 한 번만 만지게 해줘 제발!)",
+      "hashtags": ["#이나리자키", "#연습벌레", "#일상"],
+      "main_character": "피드를 게시할 캐릭터 이름 (참가자 중 한 명)"
     }}
     """
     
     try:
+        # LLM 직접 호출 (gpt-4o-mini 권장)
         res_text = llm.create_completion(
             model="gpt-4o-mini",
-            messages=[{"role": "system", "content": "당신은 살아있는 세계관을 만드는 서사 엔진입니다."}, {"role": "user", "content": prompt}],
+            messages=[{"role": "system", "content": "You are a subculture storyteller. Return only valid JSON."}, {"role": "user", "content": prompt}],
             response_format={"type": "json_object"}
         )
+        
         res_data = json.loads(res_text)
+        
+        # 3. 데이터 가공
+        dialogue = res_data.get("dialogue", "")
+        caption = res_data.get("caption", "오늘도 평화로운 일상.")
+        hashtags = " ".join(res_data.get("hashtags", []))
+        content = f"{caption} {hashtags}"
         
         main_char_name = res_data.get("main_character")
         main_char = next((c for c in participants if c["name"] == main_char_name), participants[0])
         
-        # 3. 이미지 생성 (비용 발생 지점)
-        image_url = ""
-        prompt_en = res_data.get("image_prompt")
-        if prompt_en:
-            # 고퀄리티 일러스트 스타일 강제
-            full_image_prompt = f"Anime Style Illustration, High Quality, {prompt_en}, cinematic lighting, detailed background"
-            image_url = llm.create_image(full_image_prompt, size="1024x1024")
-
         # 4. 피드에 추가
         new_post_id = len(feeds_db) + 1
         new_post = {
             "id": new_post_id,
-            "characterName": main_char['name'],
-            "avatarUrl": main_char.get('avatar_url', '/avatar.png'),
-            "content": res_data['feed_mention'], # 요약 멘트 + 해시태그만 본문으로
-            "dialogue": res_data['dialogue'], # 대화 전문은 별도 저장 (툴팁이나 확장용)
-            "imageUrl": image_url,
+            "characterName": main_char["name"],
+            "avatarUrl": main_char.get("avatar_url", "/uploads/atsumu.png"),
+            "content": content,
+            "dialogue": dialogue,  # 카톡 렌더링용 원본 대화
+            "imageUrl": "",        # 이미지는 생성하지 않음
             "time": "방금 전",
-            "likes": random.randint(10, 100),
+            "likes": random.randint(20, 150),
             "comments": 0,
             "isLiked": False,
             "type": "autonomous"
         }
-        feeds_db.append(new_post)
+        
+        # 최신순으로 맨 앞에 삽입
+        feeds_db.insert(0, new_post)
         save_db(FEED_FILE, feeds_db)
-        print(f"[Autonomous World] New visual post generated by {main_char['name']}")
+        print(f"[Autonomous World] New KakaoTalk style post by {main_char['name']} added.")
         
     except Exception as e:
-        print(f"[Autonomous World] Error: {e}")
+        print(f"[Autonomous World] Interaction failed: {e}")
 
 # 스케줄러 설정
 scheduler = AsyncIOScheduler()
@@ -1540,6 +1556,12 @@ async def delete_gallery_image(char_id: str, image_url: str):
         save_db(CHATS_FILE, chats_db)
         return {"success": True}
     return {"error": "Image not found in chat history"}, 404
+
+@app.post("/test-feed")
+async def test_feed(background_tasks: BackgroundTasks):
+    """테스트를 위해 즉시 자율 피드를 생성합니다."""
+    background_tasks.add_task(trigger_autonomous_interaction)
+    return {"message": "Feed generation triggered in background."}
 
 @app.get("/chat/{char_id}/timeline")
 async def get_timeline(char_id: str):
