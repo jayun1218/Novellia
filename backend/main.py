@@ -11,9 +11,18 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from typing import List, Optional
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import datetime
+import random
 
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+from llm_service import get_llm_service
+llm = get_llm_service()
+
+from vector_service import get_vector_service
+vector_db = get_vector_service()
 
 # Novellia API Server - v0.1.5
 app = FastAPI(title="Novellia API", version="0.1.0")
@@ -114,6 +123,7 @@ class ChatRequest(BaseModel):
     user_profile_index: Optional[int] = None
     worldview_id: Optional[str] = None # 세계관 식별자 추가
     custom_user_persona: Optional[str] = None # 세계관 전용 커스텀 페르소나
+    parent_id: Optional[str] = None # [NEW] 시나리오 맵 분기 구현을 위한 부모 노드 ID
 
 # 데이터 영구 저장을 위한 설정
 CHARACTERS_FILE = "characters.json"
@@ -153,6 +163,25 @@ user_profiles_db = load_db(PROFILES_FILE, [
 chats_db = load_db(CHATS_FILE, {})
 feeds_db = load_db(FEED_FILE, [])
 worldviews_db = load_db(WORLDVIEWS_FILE, [])
+
+@app.on_event("startup")
+async def startup_event():
+    import asyncio
+    from concurrent.futures import ThreadPoolExecutor
+    
+    loop = asyncio.get_event_loop()
+    
+    def run_migration():
+        try:
+            print("🚀 [Background] Migrating existing chats to Vector DB...")
+            vector_db.migrate_from_json(chats_db)
+            print("✅ [Background] Migration completed.")
+        except Exception as e:
+            print(f"❌ [Background] Migration failed: {e}")
+            
+    # 동기 함수를 별도 스레드 풀에서 실행하여 이벤트 루프 블로킹 방지
+    executor = ThreadPoolExecutor(max_workers=1)
+    loop.run_in_executor(executor, run_migration)
 
 # 인기 캐릭터 데이터
 popular_characters_data = {
@@ -618,13 +647,11 @@ async def generate_worldview_epilogue(wv_id: str):
     """
     
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o",
+        content = llm.create_completion(
             messages=[{"role": "system", "content": "당신은 최고의 서사 설계자입니다."}, {"role": "user", "content": prompt}],
             temperature=0.8
         )
-        epilogue = response.choices[0].message.content
-        return {"status": "success", "epilogue": epilogue}
+        return {"status": "success", "epilogue": content}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
@@ -661,12 +688,11 @@ async def generate_feed_comments_bg(post_id: int, char_name: str, content: str):
   }}
 ]"""
     try:
-        response = client.chat.completions.create(
+        reply_text = llm.create_completion(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.8,
-        )
-        reply_text = response.choices[0].message.content.strip()
+        ).strip()
         if reply_text.startswith("```json"): reply_text = reply_text[7:-3].strip()
         elif reply_text.startswith("```"): reply_text = reply_text[3:-3].strip()
         
@@ -684,6 +710,75 @@ async def generate_feed_comments_bg(post_id: int, char_name: str, content: str):
                 break
     except Exception as e:
         print(f"[BG TASK] Failed to generate comments for Post {post_id}: {e}")
+
+async def trigger_autonomous_interaction():
+    """캐릭터들끼리 자율적으로 대화하고 피드에 게시하는 백그라운드 작업"""
+    print("[Autonomous World] Triggering interaction...")
+    
+    # 1. 대상 캐릭터 선정 (대화 가능한 인기 캐릭터 중 2~3명)
+    available_chars = [c for c in popular_characters_data.values() if not c.get("is_story_only")]
+    if len(available_chars) < 2: return
+    
+    participants = random.sample(available_chars, min(len(available_chars), 3))
+    char_names = ", ".join([p["name"] for p in participants])
+    
+    # 2. 대화 생성 프롬프트
+    prompt = f"""당신은 고퀄리티 서브컬처 소설 작가입니다. 현재 '{char_names}' 세 캐릭터가 유저가 없는 곳에서 우연히 만나 대화를 나누고 있습니다.
+    
+    참가자 정보:
+    {json.dumps([{ 'name': p['name'], 'persona': p['persona'], 'speech_style': p['speech_style'] } for p in participants], ensure_ascii=False)}
+    
+    배경: 부활동 쉬는 시간, 혹은 하교길 등 일상적인 공간.
+    
+    조건:
+    1. 각 캐릭터의 원작 성격과 말투(효고현 사투리 등)를 완벽하게 재현하세요.
+    2. 3~5턴 정도의 짧고 임팩트 있는 티키타카 대화를 작성하세요.
+    3. 마지막에는 이 상황을 상징하는 한 줄의 SNS 피드 멘트를 작성하세요.
+    
+    출력 형식 (JSON):
+    {{
+      "dialogue": "캐릭터1: ... \\n캐릭터2: ...",
+      "feed_mention": "피드에 올릴 멘트",
+      "main_character": "피드를 게시할 캐릭터 이름"
+    }}
+    """
+    
+    try:
+        res_text = llm.create_completion(
+            model="gpt-4o-mini",
+            messages=[{"role": "system", "content": "당신은 살아있는 세계관을 만드는 서사 엔진입니다."}, {"role": "user", "content": prompt}],
+            response_format={"type": "json_object"}
+        )
+        res_data = json.loads(res_text)
+        
+        main_char_name = res_data.get("main_character")
+        main_char = next((c for c in participants if c["name"] == main_char_name), participants[0])
+        
+        # 3. 피드에 추가
+        new_post_id = len(feeds_db) + 1
+        new_post = {
+            "id": new_post_id,
+            "characterName": main_char['name'],
+            "avatarUrl": main_char.get('avatar_url', '/avatar.png'),
+            "content": f"{res_data['dialogue']}\n\n{res_data['feed_mention']}",
+            "time": "방금 전",
+            "likes": random.randint(10, 100),
+            "comments": 0,
+            "isLiked": False,
+            "type": "autonomous"
+        }
+        feeds_db.append(new_post)
+        save_db(FEED_FILE, feeds_db)
+        print(f"[Autonomous World] New post generated by {main_char['name']}")
+        
+    except Exception as e:
+        print(f"[Autonomous World] Error: {e}")
+
+# 스케줄러 설정
+scheduler = AsyncIOScheduler()
+# 1시간마다 자율 상호작용 실행
+scheduler.add_job(trigger_autonomous_interaction, 'interval', hours=1)
+scheduler.start()
 
 @app.post("/chat")
 async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
@@ -727,6 +822,21 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
 
     if not target_chars:
         return {"status": "error", "message": "No characters found"}
+
+    # 1.1 [NEW] 벡터 DB에서 관련 과거 맥락 추출 (RAG)
+    rag_context = ""
+    try:
+        # 모든 대상 캐릭터에 대해 관련 맥락 검색
+        for char in target_chars:
+            cid = char.get('id', 'unknown')
+            storage_id = f"{request.worldview_id}:{cid}" if request.worldview_id else cid
+            related_msgs = vector_db.query_similar_messages(storage_id, request.message, n_results=3)
+            if related_msgs:
+                rag_context += f"\n[Relevant History for {char['name']}]:\n"
+                for rm in related_msgs:
+                    rag_context += f"- {rm['metadata'].get('role', 'unknown')}: {rm['content']}\n"
+    except Exception as e:
+        print(f"RAG Error: {e}")
 
     # 2. 시스템 프롬프트 구축 (멀티 채팅 & 유저 페르소나)
     is_group_chat = len(target_chars) > 1
@@ -772,6 +882,9 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
 
     ### Character Personas:
     """
+
+    if rag_context:
+        system_prompt += f"\n### Long-term Memory (Relevant Past Context):\n{rag_context}\n"
     
     fav_contexts = []
     for char in target_chars:
@@ -879,13 +992,35 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
     messages.append({"role": "user", "content": request.message})
 
     try:
-        response = client.chat.completions.create(
+        reply = llm.create_completion(
             model="gpt-4o",
             messages=messages,
-            max_tokens=1000,
-            timeout=40.0
+            max_tokens=1000
         )
-        reply = response.choices[0].message.content
+        
+        # [NEW] 대화 내용 벡터 DB 저장
+        try:
+            for char in target_chars:
+                cid = char.get('id', 'unknown')
+                storage_id = f"{request.worldview_id}:{cid}" if request.worldview_id else cid
+                
+                # 유저 메시지 저장
+                vector_db.add_message(
+                    char_id=storage_id,
+                    message_id=f"u-{uuid.uuid4()}",
+                    role="user",
+                    content=request.message,
+                    metadata={"parent_id": request.parent_id}
+                )
+                # AI 응답 저장
+                vector_db.add_message(
+                    char_id=storage_id,
+                    message_id=f"a-{uuid.uuid4()}",
+                    role="assistant",
+                    content=reply
+                )
+        except Exception as e:
+            print(f"Vector storage error: {e}")
         
         # 3. 데이터 업데이트 및 피드 게시
         import re
@@ -973,16 +1108,12 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             else:
                 # 태그 미생성 시: GPT-4o-mini로 호감도 독립 평가 (Fallback)
                 try:
-                    eval_messages = [
-                        {"role": "system", "content": f"You are evaluating how {cname}'s favorability towards the user changed based on the latest exchange. Reply with ONLY a single integer between -5 and 5 (e.g., +5, +2, 0, -5). Nothing else."},
-                        {"role": "user", "content": f"Character reply: {reply}\n\nUser message: {request.message}\n\nFavorability change?"}
-                    ]
-                    eval_res = client.chat.completions.create(
+                    eval_res_text = llm.create_completion(
                         model="gpt-4o-mini",
                         messages=eval_messages,
-                        max_tokens=5
+                        max_tokens=10
                     )
-                    change_str = eval_res.choices[0].message.content.strip()
+                    change_str = eval_res_text.strip()
                     m = re.search(r'[+-]?\d+', change_str)
                     change = max(-5, min(5, int(m.group()))) if m else 0
                     
@@ -1017,12 +1148,12 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
                     Response in Korean content.
                     """
                     lore_messages = messages + [{"role": "assistant", "content": reply}, {"role": "user", "content": lore_prompt}]
-                    lore_res = client.chat.completions.create(
+                    lore_res_text = llm.create_completion(
                         model="gpt-4o-mini",
                         messages=lore_messages,
                         response_format={"type": "json_object"}
                     )
-                    new_lore_data = json.loads(lore_res.choices[0].message.content)
+                    new_lore_data = json.loads(lore_res_text)
                     new_entries = new_lore_data.get("new_entries", [])
                     
                     if new_entries:
@@ -1036,7 +1167,6 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
                         elif cid in popular_characters_data:
                             if "lorebook" not in popular_characters_data[cid]: popular_characters_data[cid]["lorebook"] = []
                             popular_characters_data[cid]["lorebook"].extend(new_entries)
-                            # 인기 캐릭터는 보통 static 파일에 있으나 실시간 수정을 위해 메모리에 유지하거나 별도 저장 가능
                 except Exception as e:
                     print(f"Lore extraction error: {e}")
 
@@ -1104,8 +1234,8 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
                     chats_db[cid]["is_summarizing"] = True
                     try:
                         summary_msg = messages + [{"role": "assistant", "content": reply}, {"role": "user", "content": f"Summarize the history between {cname} and user. Korean."}]
-                        s_res = client.chat.completions.create(model="gpt-4o-mini", messages=summary_msg, max_tokens=300)
-                        chats_db[cid]["memory_summary"] = s_res.choices[0].message.content
+                        summary_text = llm.create_completion(model="gpt-4o-mini", messages=summary_msg, max_tokens=300)
+                        chats_db[cid]["memory_summary"] = summary_text
                     except: pass
                     finally: chats_db[cid]["is_summarizing"] = False
 
@@ -1129,13 +1259,13 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             Example: ["(고개를 끄덕이며) 알겠어.", "그게 무슨 소리야?", "말도 안 돼."]
             Response in Korean.
             """
-            suggest_res = client.chat.completions.create(
+            suggest_res_text = llm.create_completion(
                 model="gpt-4o-mini",
                 messages=[{"role": "system", "content": suggest_prompt}, {"role": "user", "content": f"AI Reply: {reply}\n\nSuggested Responses?"}],
                 max_tokens=150,
                 temperature=0.8
             )
-            s_content = suggest_res.choices[0].message.content.strip()
+            s_content = suggest_res_text.strip()
             if s_content.startswith("```json"): s_content = s_content[7:-3].strip()
             elif s_content.startswith("```"): s_content = s_content[3:-3].strip()
             suggestions = json.loads(s_content)
@@ -1209,12 +1339,12 @@ async def scrape_namuwiki(request: NamuRequest):
             content = soup.get_text(separator=' ', strip=True)[:10000]
             
             user_msg = f"Analyze character info from: {content}. Respond in JSON with: name, description, persona, greeting, speech_style, tags (array of strings), lorebook (array of objects with 'name', 'keywords' (array), 'content')). Respond in Korean."
-            completion = client.chat.completions.create(
+            completion_text = llm.create_completion(
                 model="gpt-4o",
                 messages=[{"role": "user", "content": user_msg}],
                 response_format={ "type": "json_object" }
             )
-            return json.loads(completion.choices[0].message.content)
+            return json.loads(completion_text)
         except Exception as e:
             return {"error": str(e)}, 500
 
@@ -1245,12 +1375,12 @@ async def generate_persona(request: PersonaGenerateRequest):
             "persona": "풍부하게 작성된 상세 페르소나/로어"
         }}"""
         
-        response = client.chat.completions.create(
+        response_text = llm.create_completion(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"}
         )
-        return json.loads(response.choices[0].message.content)
+        return json.loads(response_text)
     except Exception as e:
         print(f"AI Persona Generation Error: {e}")
         return {"description": "생성에 실패했습니다.", "persona": "다시 시도해주세요."}
@@ -1449,6 +1579,53 @@ async def get_timeline(char_id: str):
     full_timeline.sort(key=lambda x: x.get('iso_timestamp', '') or x.get('timestamp', ''))
     
     return full_timeline
+
+@app.get("/worldviews/{wv_id}/scenario-map")
+async def get_scenario_map(wv_id: str):
+    """시나리오 분기 및 호감도 변화를 시각화하기 위한 데이터 반환"""
+    # wv-1:ma4 형태의 모든 캐릭터 채팅 기록 수집
+    nodes = []
+    edges = []
+    
+    # 1. 루트 노드 (세계관 시작)
+    nodes.append({
+        "id": "root",
+        "type": "input",
+        "data": { "label": "Start of Story" },
+        "position": { "x": 250, "y": 0 }
+    })
+    
+    # 2. 개별 캐릭터별 히스토리 수집 및 전처리
+    # (실제 구현에서는 parent_id 기반으로 복잡한 트리를 그려야 하나, 
+    # 현재는 선형 기록 및 MOMENT 기반으로 주요 노드 생성)
+    y_offset = 100
+    for key, value in chats_db.items():
+        if key.startswith(f"{wv_id}:"):
+            char_id = key.split(":")[1]
+            if char_id == "history": continue
+            
+            char_name = char_id # 실제 이름을 찾으면 더 좋음
+            messages = value.get("messages", [])
+            timeline = value.get("timeline", [])
+            
+            # 주요 모멘트 및 분기점 추출
+            last_node_id = "root"
+            for t in timeline:
+                node_id = f"node-{t['iso_timestamp']}"
+                nodes.append({
+                    "id": node_id,
+                    "data": { 
+                        "label": t['title'], 
+                        "type": t['type'],
+                        "description": t.get('description', '')
+                    },
+                    "position": { "x": random.randint(0, 500), "y": y_offset }
+                })
+                edges.append({ "id": f"e-{last_node_id}-{node_id}", "source": last_node_id, "target": node_id })
+                last_node_id = node_id
+                y_offset += 100
+                
+    return { "nodes": nodes, "edges": edges }
 
 
 SCENARIOS = [
