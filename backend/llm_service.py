@@ -63,6 +63,23 @@ class LLMService:
         else:
             raise ValueError(f"Unsupported LLM provider: {self.provider}")
 
+    def create_image(self, prompt: str, size: str = "1024x1024") -> str:
+        """DALL-E 3를 사용하여 이미지를 생성합니다. (현재 OpenAI만 지원)"""
+        if self.provider == "openai":
+            try:
+                response = self.openai_client.images.generate(
+                    model="dall-e-3",
+                    prompt=prompt,
+                    size=size,
+                    quality="standard",
+                    n=1,
+                )
+                return response.data[0].url
+            except Exception as e:
+                print(f"OpenAI Image Error: {e}")
+                return "" # 실패 시 빈 문자열 반환
+        return "" # Ollama 등은 현재 이미지 생성 미지원
+
 # 싱글톤 인스턴스
 _llm_instance = None
 

@@ -252,19 +252,34 @@ export default function FeedPage() {
               </button>
             </div>
 
-            {/* Post Content */}
-            <div className="px-5 pb-4">
-              <p className="text-gray-300 text-[15px] leading-relaxed whitespace-pre-wrap">{post.content}</p>
-            </div>
-
-            {/* Post Image */}
+            {/* Post Image (Moved to top for SNS style) */}
             {post.imageUrl && (
-              <div className="px-5 pb-5">
-                <div className="rounded-2xl overflow-hidden border border-white/5 aspect-video bg-black/20">
-                  <img src={post.imageUrl} alt="post" className="w-full h-full object-cover opacity-90 hover:opacity-100 transition-opacity duration-500" />
+              <div className="px-5 pb-4">
+                <div className="rounded-2xl overflow-hidden border border-white/5 aspect-video bg-black/20 relative group">
+                  <img 
+                    src={post.imageUrl} 
+                    alt="post" 
+                    className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity duration-700" 
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 </div>
               </div>
             )}
+
+            {/* Post Content (Caption) */}
+            <div className="px-5 pb-5">
+              <p className="text-gray-300 text-[15px] leading-relaxed whitespace-pre-wrap font-medium">
+                {post.content}
+              </p>
+              {post.dialogue && (
+                <div className="mt-4 p-3 bg-white/5 rounded-xl border border-white/5">
+                  <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-2">Original Dialogue</p>
+                  <p className="text-gray-400 text-xs italic leading-relaxed whitespace-pre-wrap line-clamp-3 hover:line-clamp-none transition-all cursor-pointer">
+                    {post.dialogue}
+                  </p>
+                </div>
+              )}
+            </div>
 
             {/* Post Actions */}
             <div className="px-5 py-4 border-t border-white/5 flex items-center gap-6">
