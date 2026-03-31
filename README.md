@@ -28,11 +28,19 @@
 - **Icons**: Lucide React
 - **Persistence**: LocalStorage & Backend API 기반 세션 유지
 
-- **Bridge**: FastAPI (Python)
+### Frontend
+- **Framework**: Next.js 16 (App Router)
+- **Styling**: Vanilla CSS (Premium Custom Design) & Tailwind Optional
+- **Animation**: Framer Motion
+- **Icons**: Lucide React
+- **Persistence**: LocalStorage & Backend API 기반 세션 유지
+
+### Backend
+- **Core**: FastAPI (Python)
 - **AI Engine**: OpenAI GPT-4o, Ollama (Local LLM Support)
 - **Vector DB**: ChromaDB (RAG & Long-term Memory)
-- **Scheduler**: APScheduler (Autonomous Simulation)
-- **Logic**: 감각형 서사 엔진, 나비 효과 시나리오 로직, 실시간 호감도 추론
+- **Scheduler**: APScheduler (Autonomous World Simulation)
+- **Logic**: 감각형 서사 엔진, 나비 효과 시나리오 분기 로직, 실시간 호감도 추론
 
 ---
 
