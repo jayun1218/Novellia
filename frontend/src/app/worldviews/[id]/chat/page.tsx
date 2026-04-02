@@ -122,7 +122,11 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
               const suggestRes = await fetch(`http://localhost:8000/chat/generate-suggestions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reply: lastAiMsg.content, char_names: charNames })
+                body: JSON.stringify({ 
+                  reply: lastAiMsg.content, 
+                  char_names: charNames,
+                  user_name: name 
+                })
               });
               if (suggestRes.ok) {
                 const suggestData = await suggestRes.json();
@@ -135,10 +139,10 @@ export default function WorldviewChatPage({ params }: { params: Promise<{ id: st
               console.error('Failed to refresh suggestions:', err);
             }
           }
-        } else if (wvData.introduction) {
+        } else if (wvData.intro_text) {
           setMessages([{
             id: Date.now(),
-            content: wvData.introduction,
+            content: wvData.intro_text,
             isAi: true,
             role: 'observation',
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })

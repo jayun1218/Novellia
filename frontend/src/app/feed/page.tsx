@@ -44,6 +44,22 @@ const ChatCapture = ({ dialogue, mainCharacter }: { dialogue: string, mainCharac
   );
 };
 
+// [Utility] 해시태그 텍스트에 스타일 적용
+const renderContent = (content: string) => {
+  if (!content) return null;
+  const parts = content.split(/(\s+)/);
+  return parts.map((part, index) => {
+    if (part.startsWith('#')) {
+      return (
+        <span key={index} className="text-sky-400 font-bold">
+          {part}
+        </span>
+      );
+    }
+    return part;
+  });
+};
+
 // NPC 댓글 풀 (랜덤 유저 아이디 + 다양한 반응)
 const NPC_USERNAMES = [
   'hana__92', 'jdue__99', 'volleyball_otaku', 'minagi_07', 'kuroo_stan22',
@@ -310,7 +326,7 @@ export default function FeedPage() {
             {/* Post Content (Caption) */}
             <div className="px-5 pb-5">
               <p className="text-gray-300 text-[15px] leading-relaxed whitespace-pre-wrap font-medium">
-                {post.content}
+                {renderContent(post.content)}
               </p>
             </div>
 

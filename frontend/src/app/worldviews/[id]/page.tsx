@@ -183,8 +183,8 @@ export default function WorldviewDetailPage({ params }: { params: Promise<{ id: 
                   </div>
                   <div className="space-y-2 relative z-10">
                     <div className="flex items-center gap-2 mb-1">
-                       <div className="w-1 h-1 bg-primary rounded-full" />
-                       <span className="text-[10px] font-black text-primary/70 uppercase tracking-widest">권장 페르소나</span>
+                      <div className="w-1 h-1 bg-primary rounded-full" />
+                      <span className="text-[10px] font-black text-primary/70 uppercase tracking-widest">권장 페르소나</span>
                     </div>
                     <p className="text-base text-gray-200 leading-relaxed font-bold break-keep">
                       {worldview?.user_persona_preset || "이 세계관의 주인공으로서 시나리오에 맞는 최적의 역할을 수행하게 됩니다."}

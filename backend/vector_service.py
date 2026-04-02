@@ -38,6 +38,14 @@ class VectorService:
             metadatas=[metadata]
         )
 
+    def delete_history(self, char_id: str):
+        """특정 캐릭터 또는 세계관의 대화 내역(벡터)을 삭제합니다."""
+        try:
+            self.collection.delete(where={"char_id": char_id})
+            print(f"✅ [Vector DB] Deleted history for: {char_id}")
+        except Exception as e:
+            print(f"❌ [Vector DB] Delete error for {char_id}: {e}")
+
     def query_similar_messages(self, char_id: str, query: str, n_results: int = 5) -> List[Dict[str, Any]]:
         """현재 쿼리와 가장 유사한 과거 대화 내용을 검색합니다."""
         results = self.collection.query(

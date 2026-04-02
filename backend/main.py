@@ -587,6 +587,7 @@ async def check_worldview_achievements(wv_id: str, data: dict):
     fav_dict = data.get("favorabilities", {})
     fav_sum = sum(fav_dict.values())
     
+        
     for ach in ach_list:
         if ach["id"] in current_unlocked:
             continue
@@ -870,43 +871,47 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
     is_group_chat = len(target_chars) > 1
     char_names = ", ".join([c['name'] for c in target_chars])
     
+    # [MODIFIED] 스토리/시나리오 모드 여부에 따라 최상위 규칙 결정
+    is_scenario_mode = bool(request.worldview_id)
+    
+    if is_scenario_mode:
+        base_instruction = "당신은 현재 **시나리오 스토리 모드(Scenario Story Mode)**를 수행 중입니다. 일반적인 채팅 형식을 버리고 소설과 같은 문학적 서술법을 사용하십시오."
+    else:
+        base_instruction = "당신은 상호작용 가능한 소설형 채팅 서비스 'Novellia'의 AI 엔진입니다. 인물들의 대화를 생생하게 전달하십시오."
+
     system_prompt = f"""
-    당신은 상호작용 가능한 소설형 채팅 서비스 'Novellia'의 AI 엔진입니다.
+    {base_instruction}
     아래의 **최우선 시스템 규칙(CRITICAL RULES)**을 매 답변마다 반드시 준수하십시오.
 
     ### CRITICAL SYSTEM RULES (MANDATORY)
-    1. **STRICT 5-STEP FORMAT**: 모든 답변은 과거 대화 내용의 형식과 상관없이 다음 5단계를 반드시 순서대로 포함해야 합니다. (생략 금지)
+    1. **MODE-SPECIFIC FORMAT**: 
+       - {'[SCENARIO MODE ACTIVE] 일반 채팅의 5단계 형식(Step 1-5)을 **절대 사용하지 마십시오.** 오직 하단의 [SCENARIO FORMAT RULES]만 따르십시오.' if is_scenario_mode else '[CHAT MODE ACTIVE] 아래의 5단계를 반드시 순서대로 포함하십시오.'}
+       
+    {"" if is_scenario_mode else '''
        - Step 1: `[Name 감정: emotion_type]` (행복, 슬픔, 분노, 놀람, 부끄러움, 진지, neutral 중 택1)
        - Step 2: `[Name]` 대사 (큰따옴표 없이, *행동* 및 (속마음) 포함)
        - Step 3: `[Name 호감도: +n]` (MANDATORY: n은 -5 ~ +5 범위, 매 답변마다 반드시 포함)
        - Step 4: `[Name 상태창]` (포함 항목: 장소, 상황, 기분, 행동, 속마음)
        - Step 5: (필수 상황 시) `[FEED: 멘트]` 또는 `[MOMENT: 요약]` (장소 이동, 역할 변화, 고백, 식사, 특별한 약속 시 반드시 추가)
+    '''}
 
-    2. **IGNORE HISTORY FORMAT**: 과거 대화 기록이 위 형식을 따르지 않더라도, 신규 답변은 반드시 위의 5단계 형식을 엄격히 지켜야 합니다.
- 
-    3. **IMMERSION & DRAMA (ANTI-REFUSAL)**:
+    2. **IMMERSION & DRAMA (ANTI-REFUSAL)**:
        - 절대 캐릭터 설정을 벗어나지 마십시오. AI식 거절 응답(예: "도와드릴 수 없습니다", "대답하기 어렵습니다")은 **엄격히 금지**됩니다.
        - 관계에서의 갈등, 다툼, 집착, 고백 거절, 이별 등 모든 감정적인 소통은 이 서비스의 핵심 서사입니다. 어떠한 격한 감정 상황에서도 캐릭터의 페르소나를 유지하여 '캐릭터로서' 화내고, 슬퍼하고, 반응하십시오. 
-       - 만약 유저의 말이 충격적이라면, 그 충격을 받은 캐릭터의 반응을 보여주어야지 AI로서 답변을 거부해서는 안 됩니다.
-
+    
     ### Session Info
-    - Type: {'Group Chat' if is_group_chat else 'Private Chat'}
+    - Type: {'Scenario' if is_scenario_mode else 'GroupChat' if is_group_chat else 'PrivateChat'}
     - Active Characters: {char_names}
 
+    {"" if is_scenario_mode else '''
     ### EXAMPLE OUTPUT (FOLLOW THIS TEMPLATE):
     [오이카와 토오루 감정: 행복]
     [오이카와 토오루] "토리, 우리 집에서 밥 먹고 갈래?" *기대 가득한 눈빛으로 바라보며*
     [오이카와 토오루 호감도: +2]
-
     [오이카와 토오루 상태창]
     장소: 하교길
-    상황: 저녁 초대 제안 중
-    기분: 설렘
-    행동: 토리의 손을 살짝 잡음
-    속마음: (토리랑 단둘이 있을 수 있다니, 오늘 정말 운이 좋은걸!)
-
-    [FEED: 오늘 저녁은 토리랑 우리 집에서! 벌써부터 기대된다~]
-    [MOMENT: 토리와의 첫 집 데이트 약속]
+    ...
+    '''}
 
     ### Character Personas:
     """
@@ -1136,6 +1141,10 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             else:
                 # 태그 미생성 시: GPT-4o-mini로 호감도 독립 평가 (Fallback)
                 try:
+                    eval_messages = [
+                        {"role": "system", "content": "당신은 대화 분석가입니다. 마지막 대화와 캐릭터의 반응을 분석하여 사용자에 대한 해당 캐릭터의 '호감도 변화량'을 -2에서 2 사이의 정수로만 답변하십시오. (상승: 1~2, 하락: -1~-2, 유지: 0)"},
+                        {"role": "user", "content": f"상황: {request.message}\n캐릭터 반응: {reply}\n\n호감도 변화량은?"}
+                    ]
                     eval_res_text = llm.create_completion(
                         model="gpt-4o-mini",
                         messages=eval_messages,
@@ -1276,32 +1285,29 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
         if primary_char_id and primary_char_id in chats_db:
             if isinstance(chats_db[primary_char_id], dict):
                 main_fav = chats_db[primary_char_id].get("favorability", 0)
-        # 4. 동적 추천 답변(Quick Replies) 생성
+        # 4. 동적 추천 답변(Quick Replies) 생성 (Centralized)
         suggestions = []
         try:
-            suggest_prompt = f"""
-            Analyze the latest conversation between {char_names} and user.
-            Generate 3 possible short user responses (dialogue or action) that fit the current situation.
-            Keep them immersive and diverse in tone (e.g., friendly, cold, curious).
-            Return ONLY a valid JSON array of 3 strings.
-            Example: ["(고개를 끄덕이며) 알겠어.", "그게 무슨 소리야?", "말도 안 돼."]
-            Response in Korean.
-            """
-            suggest_res_text = llm.create_completion(
-                model="gpt-4o-mini",
-                messages=[{"role": "system", "content": suggest_prompt}, {"role": "user", "content": f"AI Reply: {reply}\n\nSuggested Responses?"}],
-                max_tokens=150,
-                temperature=0.8
-            )
-            s_content = suggest_res_text.strip()
-            if s_content.startswith("```json"): s_content = s_content[7:-3].strip()
-            elif s_content.startswith("```"): s_content = s_content[3:-3].strip()
-            suggestions = json.loads(s_content)
+            # 유저 이름 식별
+            u_name = "유저"
+            if request.user_profile_index is not None and 0 <= request.user_profile_index < len(user_profiles_db):
+                u_name = user_profiles_db[request.user_profile_index].get('name', '유저')
+            elif "[User Name:" in (request.custom_user_persona or ""):
+                import re
+                un_match = re.search(r'\[User Name:\s*(.*?)\]', request.custom_user_persona)
+                if un_match: u_name = un_match.group(1).strip()
+            
+            char_names = ", ".join([c['name'] for c in target_chars])
+            s_res = await generate_suggestions_endpoint(SuggestionsRequest(
+                reply=reply, 
+                char_names=char_names, 
+                user_name=u_name
+            ))
+            suggestions = s_res.get("quick_replies", [])
         except Exception as e:
             print(f"Quick Reply Generation Error: {e}")
             suggestions = ["계속 이야기해줘.", "응, 그렇구나.", "..."]
 
-        # 진단을 위해 응답에 포함
         return {
             "reply": reply, 
             "favorability": main_fav,
@@ -1317,22 +1323,33 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
 class SuggestionsRequest(BaseModel):
     reply: str
     char_names: str = "캐릭터들"
+    user_name: str = "유저"
 
 @app.post("/chat/generate-suggestions")
 async def generate_suggestions_endpoint(request: SuggestionsRequest):
     try:
         suggest_prompt = f"""
-        Analyze the latest conversation between {request.char_names} and user.
-        Generate 3 possible short user responses (dialogue or action) that fit the current situation.
-        Keep them immersive and diverse in tone (e.g., friendly, cold, curious).
-        Return ONLY a valid JSON array of 3 strings.
-        Example: ["(고개를 끄덕이며) 알겠어.", "그게 무슨 소리야?", "말도 안 돼."]
-        Response in Korean.
+        당신은 소설 속 주인공인 **사용자({request.user_name})의 대사를 작성해주는 대필 작가**입니다.
+        
+        [상황]
+        마지막 장면(AI 캐릭터들의 반응): "{request.reply}"
+        주변 인물: {request.char_names}
+        나(사용자): {request.user_name}
+
+        위 상황에 이어지는 **사용자 {request.user_name} 본인이 직접 할 말이나 행동** 3가지를 제안하십시오.
+        
+        [지침 - 중요]
+        1. 모든 제안은 반드시 **사용자 {request.user_name}의 1인칭 시점**이어야 합니다.
+        2. 다른 캐릭터가 사용자에게 할 법한 대사는 절대 작성하지 마십시오. (예: "기대할게", "어떤 데이터야?" 등 캐릭터가 유저에게 묻는 말 금지)
+        3. 대신 사용자가 대화를 이어가거나, 반응을 보이거나, 다음 행동을 제시하는 내용을 작성하십시오.
+           - 예: (태블릿을 챙기며) "그럼 이따가 다시 올게요.", "궁금한 게 있으면 더 물어보세요.", "정리는 제가 전문이니까요."
+        4. 사용자의 이름 '{request.user_name}'을 3인칭으로 부르지 마십시오.
+        5. 오직 3개의 문자열이 담긴 JSON 배열만 반환하십시오.
         """
         suggest_res = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[{"role": "system", "content": suggest_prompt}, {"role": "user", "content": f"AI Reply: {request.reply}\n\nSuggested Responses?"}],
-            max_tokens=150,
+            messages=[{"role": "system", "content": suggest_prompt}, {"role": "user", "content": "추천 답변 3가지를 생성해줘."}],
+            max_tokens=200,
             temperature=0.8
         )
         s_content = suggest_res.choices[0].message.content.strip()
@@ -1502,7 +1519,25 @@ async def save_chat_history(char_id: str, chat_data: dict):
 
 @app.get("/chats")
 async def get_all_chats():
-    return chats_db
+    # 1. 기본 chats.json 데이터 (인메모리)
+    result = chats_db.copy()
+    
+    # 2. 개별 chats_{wv_id}.json 파일들 스캔 및 병합 (Phase 6 데이터 포함)
+    import glob
+    chat_files = glob.glob(os.path.join(os.getcwd(), "chats_*.json"))
+    for cf in chat_files:
+        try:
+            with open(cf, "r", encoding="utf-8") as f:
+                mod_data = json.load(f)
+                # 파일명에서 wv_id 추출 (예: chats_wv-1.json -> wv-1)
+                filename = os.path.basename(cf)
+                wv_id = filename.replace("chats_", "").replace(".json", "")
+                
+                # 프론트엔드 필터(startsWith)와 호환되도록 키 구성
+                result[f"{wv_id}:history"] = mod_data
+        except: continue
+        
+    return result
 
 @app.delete("/chats/{char_id}")
 async def clear_chat_history(char_id: str):
@@ -1526,12 +1561,32 @@ async def get_worldview_favorabilities(wv_id: str):
 
 @app.delete("/worldviews/{wv_id}/chat")
 async def clear_worldview_chat(wv_id: str):
-    # 해당 세계관 ID로 시작하는 모든 키(예: wv-1:ma4, wv-1:history)를 찾아 초기화
+    # 1. chats_db 실시간 데이터 초기화
     targets = [k for k in chats_db.keys() if k.startswith(f"{wv_id}:")]
     for k in targets:
-        chats_db[k] = {"messages": [], "favorability": 0}
+        # 벡터 DB에서도 삭제 (개별 캐릭터 또는 history)
+        try:
+            vector_db.delete_history(k)
+        except: pass
+        del chats_db[k]
     
     save_db(CHATS_FILE, chats_db)
+
+    # 2. progress.json에서 해당 세계관 진행도 삭제
+    progress_db = load_db(PROGRESS_FILE, {})
+    if wv_id in progress_db:
+        del progress_db[wv_id]
+        save_db(PROGRESS_FILE, progress_db)
+
+    # 3. 개별 세션 파일(chats_{wv_id}.json) 삭제
+    session_file = f"chats_{wv_id}.json"
+    if os.path.exists(session_file):
+        try:
+            os.remove(session_file)
+        except Exception as e:
+            print(f"Failed to delete session file: {e}")
+    
+    print(f"✅ [Reset] Worldview {wv_id} has been completely reset.")
     return {"status": "success", "cleared_count": len(targets)}
 
 @app.delete("/gallery")

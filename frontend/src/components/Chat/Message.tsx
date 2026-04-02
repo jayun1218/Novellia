@@ -62,9 +62,13 @@ const Message: React.FC<MessageProps> = ({
   const getSpeakerInfo = () => {
     if (!isAi) return { name: userProfile?.name || '나', avatar: userProfile?.avatar_url || '/avatar.png', char: null };
     
-    // 시나리오 모드일 경우 세계관 전용 아바타(나레이션) 우선 사용
-    if (isStory && storyAvatar) {
-      return { name: 'Scenario', avatar: storyAvatar, char: null };
+    // 시나리오 모드일 경우 세계관 전용 아바타(나레이션) 우선 사용 및 화자 고정
+    if (isStory) {
+      return { 
+        name: 'Scenario', 
+        avatar: storyAvatar || '/avatar.png', 
+        char: null 
+      };
     }
 
     const nameMatch = content.match(/^\[(.*?)\]/);
@@ -350,19 +354,27 @@ const Message: React.FC<MessageProps> = ({
                       </div>
                     )}
 
-                    {/* Support Legacy Status in Story Mode */}
+                    {/* Support Legacy Status in Story Mode with Polished UI */}
                     {legacyStatuses.map((block, idx) => (
-                      <div key={idx} className={`rounded-3xl border p-5 ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-black/20 border-white/5'}`}>
-                        <h5 className="text-[11px] font-black text-[#A29BFE] uppercase tracking-widest mb-3 flex items-center gap-2">
-                          <Zap className="w-4 h-4 fill-[#A29BFE] text-[#A29BFE]" /> {block.title}
+                      <div key={idx} className={`rounded-3xl border p-6 ${theme === 'oreo' || theme === 'taro' || theme === 'mint' ? 'bg-black/5 border-black/5' : 'bg-black/30 border-white/5 shadow-inner'}`}>
+                        <h5 className="text-[12px] font-black text-[#A29BFE] uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                           <div className="w-1.5 h-1.5 bg-[#A29BFE] rounded-full animate-pulse" />
+                           {block.title}
                         </h5>
-                        <div className="space-y-2">
-                          {block.content.split('\n').filter(l => l.trim()).map((line, lidx) => (
-                            <div key={lidx} className="text-[13px] opacity-90 flex items-start gap-2">
-                              <span className="opacity-40 font-black text-primary mt-[1px]">•</span>
-                              <span className="leading-relaxed">{line.replace(/^[*-]\s*/, '')}</span>
-                            </div>
-                          ))}
+                        <div className="space-y-3">
+                          {block.content.split('\n').filter(l => l.trim()).map((line, lidx) => {
+                            const [label, ...valParts] = line.includes(':') ? line.split(':') : ['', line];
+                            const value = valParts.join(':').trim();
+                            
+                            return (
+                              <div key={lidx} className="flex items-baseline gap-3 text-[13px]">
+                                {label && <span className="text-[10px] font-black opacity-30 uppercase min-w-[60px] text-right">{label.replace(/^[*-]\s*/, '').trim()}</span>}
+                                <span className={`leading-relaxed ${label ? 'opacity-90 font-bold' : 'opacity-80 italic'}`}>
+                                  {value.replace(/^[*-]\s*/, '')}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     ))}
