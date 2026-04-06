@@ -779,8 +779,8 @@ async def trigger_autonomous_interaction():
         main_char_name = res_data.get("main_character")
         main_char = next((c for c in participants if c["name"] == main_char_name), participants[0])
         
-        # 4. 피드에 추가
-        new_post_id = len(feeds_db) + 1
+        # ID 생성 개선: 기존 ID 중 최댓값 + 1
+        new_post_id = max([p["id"] for p in feeds_db], default=0) + 1
         new_post = {
             "id": new_post_id,
             "characterName": main_char["name"],
@@ -1068,8 +1068,9 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             
             import random
             
-            new_post_id = len(feeds_db) + 1
-            feeds_db.append({
+            # ID 생성 개선: 기존 ID 중 최댓값 + 1
+            new_post_id = max([p["id"] for p in feeds_db], default=0) + 1
+            feeds_db.insert(0, {
                 "id": new_post_id,
                 "characterName": speaker_char['name'],
                 "avatarUrl": speaker_char.get('avatarUrl', speaker_char.get('avatar_url', '/avatar.png')),
@@ -1459,7 +1460,8 @@ async def delete_user_profile(index: int):
 
 @app.get("/feed")
 async def get_feed():
-    return feeds_db[::-1]
+    # ID 기준 내림차순 정렬 (최신 피드가 먼저 오도록)
+    return sorted(feeds_db, key=lambda x: x.get('id', 0), reverse=True)
 
 @app.post("/feed/like/{post_id}")
 async def like_post(post_id: int):
